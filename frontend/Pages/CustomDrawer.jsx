@@ -257,7 +257,7 @@ const CustomDrawer = ({ navigation, onClose }) => {
               style={styles.profileImage}
             />
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{user.name}</Text>
+              <Text style={styles.profileName}>{user.username}</Text>
               <Text style={styles.profileEmail}>{user.email}</Text>
               {(userType.toLowerCase() === 'admin' || userType.toLowerCase() === 'administrator') && (
                 <View style={styles.adminBadge}>
