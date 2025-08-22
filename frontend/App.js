@@ -28,6 +28,7 @@ import MedicalHistory from './Pages/Veterinarian/MedicalHistory'
 import Behavior from './Pages/Admin/Behaviors';
 import AnimalCheckups from './Pages/AnimalProf/AnimalCheckup'; // New import
 import ReportGenerator from './Pages/Veterinarian/ReportGenerator'; // New import
+import UserProfile from './Pages/UserProfile';
 
 
 const Stack = createStackNavigator();
@@ -101,6 +102,13 @@ export default function App() {
             component={AnimalCheckups}
             options={{ headerShown: false }}
           />
+
+          {/* User Profile Screen */}
+<Stack.Screen
+  name="UserProfile"
+  component={UserProfile}
+  options={{ headerShown: false }}
+/>
           
           {/* Admin Screens */}
           <Stack.Screen
