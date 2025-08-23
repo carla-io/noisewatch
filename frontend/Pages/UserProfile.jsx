@@ -171,10 +171,6 @@ const UserProfile = ({ navigation }) => {
       case 'admin':
       case 'administrator':
         return 'System Administrator';
-      case 'vet':
-      case 'veterinarian':
-      case 'doctor':
-        return 'Veterinarian';
       default:
         return 'Community Member';
     }
@@ -185,10 +181,6 @@ const UserProfile = ({ navigation }) => {
       case 'admin':
       case 'administrator':
         return '#8B4513';
-      case 'vet':
-      case 'veterinarian':
-      case 'doctor':
-        return '#D4AC0D';
       default:
         return '#8B7355';
     }

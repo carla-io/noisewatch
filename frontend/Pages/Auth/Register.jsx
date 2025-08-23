@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios';
 import { showToast } from '../../utils/toast';
 import API_BASE_URL from '../../utils/api';
 import * as ImagePicker from 'expo-image-picker';
@@ -88,26 +89,31 @@ const Register = ({ navigation }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      showToast('error', 'Permission Denied', 'Sorry, we need camera roll permissions to select an image');
-      return;
-    }
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showToast('error', 'Permission Denied', 'Sorry, we need camera roll permissions to select an image');
+        return;
+      }
 
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-    if (!result.canceled) {
-      const manipulatedImage = await manipulateAsync(
-        result.assets[0].uri,
-        [{ resize: { width: 500, height: 500 } }],
-        { compress: 0.7, format: SaveFormat.JPEG }
-      );
-      setProfilePhoto(manipulatedImage);
+      if (!result.canceled) {
+        const manipulatedImage = await manipulateAsync(
+          result.assets[0].uri,
+          [{ resize: { width: 500, height: 500 } }],
+          { compress: 0.7, format: SaveFormat.JPEG }
+        );
+        setProfilePhoto(manipulatedImage);
+      }
+    } catch (error) {
+      console.error('Image picker error:', error);
+      showToast('error', 'Image Error', 'Failed to select image. Please try again.');
     }
   };
 
@@ -120,6 +126,11 @@ const Register = ({ navigation }) => {
 
     if (!name.trim()) {
       showToast('error', 'Name Required', 'Please enter your full name');
+      return false;
+    }
+
+    if (name.trim().length < 2) {
+      showToast('error', 'Invalid Name', 'Name must be at least 2 characters long');
       return false;
     }
 
@@ -167,7 +178,7 @@ const Register = ({ navigation }) => {
       formData.append('name', name.trim());
       formData.append('email', email.trim().toLowerCase());
       formData.append('password', password.trim());
-      formData.append('userType', 'user');
+      formData.append('userType', 'user'); // Default user type (no vet option)
       
       // Profile photo is now guaranteed to exist due to validation
       formData.append('profilePhoto', {
@@ -176,26 +187,17 @@ const Register = ({ navigation }) => {
         name: 'profile.jpg'
       });
 
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: 'POST',
+      const response = await axios.post(`${API_BASE_URL}/auth/register`, formData, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'multipart/form-data',
         },
-        body: formData
+        timeout: 30000, // 30 second timeout for file upload
       });
 
-      const responseText = await response.text();
-      let data;
-      
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        console.error('Failed to parse JSON:', responseText);
-        throw new Error('Server returned invalid data');
-      }
+      const { data } = response;
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.message || 'Registration failed');
       }
 
@@ -207,12 +209,13 @@ const Register = ({ navigation }) => {
         ['userToken', data.token],
         ['userData', JSON.stringify(data.user)],
         ['isAuthenticated', 'true'],
-        ['userId', data.user.id],
-        ['userType', data.user.userType]
+        ['userId', data.user.id.toString()],
+        ['userType', data.user.userType || 'user']
       ]);
 
-      showToast('success', 'Account Created', `Welcome to our community, ${data.user.name || data.user.email}!`);
+      showToast('success', 'Account Created', `Welcome to our community, ${data.user.name || data.user.username || data.user.email}!`);
       
+      // All new users go to Home (no vet dashboard)
       navigation.reset({
         index: 0,
         routes: [{ name: 'Home' }],
@@ -220,11 +223,24 @@ const Register = ({ navigation }) => {
 
     } catch (error) {
       console.error('Registration error:', error);
-      showToast(
-        'error', 
-        'Registration Failed', 
-        error.message || 'An error occurred during registration'
-      );
+      
+      let errorMessage = 'An error occurred during registration';
+      
+      if (error.response) {
+        // Server responded with error status
+        errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
+      } else if (error.request) {
+        // Network error
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.code === 'ECONNABORTED') {
+        // Timeout error
+        errorMessage = 'Upload timeout. Please try again with a smaller image.';
+      } else {
+        // Other errors
+        errorMessage = error.message || errorMessage;
+      }
+
+      showToast('error', 'Registration Failed', errorMessage);
     } finally {
       setLoading(false);
     }

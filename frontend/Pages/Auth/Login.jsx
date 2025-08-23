@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios';
 import { showToast } from '../../utils/toast';
 import API_BASE_URL from '../../utils/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -25,7 +26,10 @@ const Login = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [focusedInput, setFocusedInput] = useState(null);
+  
+  // Refs for input focusing
+  const emailInputRef = useRef(null);
+  const passwordInputRef = useRef(null);
 
   const validateForm = () => {
     if (!email.trim()) {
@@ -52,83 +56,78 @@ const Login = ({ navigation }) => {
   };
 
   const handleLogin = async () => {
-  if (!validateForm()) return;
+    if (!validateForm()) return;
 
-  setLoading(true);
+    setLoading(true);
 
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    try {
+      const response = await axios.post(`${API_BASE_URL}/auth/login`, {
         email: email.trim().toLowerCase(),
         password: password.trim()
-      })
-    });
-
-    if (!response) {
-      throw new Error('No response from server');
-    }
-
-    const responseText = await response.text();
-    
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch (e) {
-      console.error('Failed to parse JSON:', responseText);
-      throw new Error('Server returned invalid data');
-    }
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.message || 'Login failed');
-    }
-
-    if (!data.token || !data.user) {
-      throw new Error('Invalid response format');
-    }
-
-    await AsyncStorage.multiSet([
-      ['userToken', data.token],
-      ['userData', JSON.stringify(data.user)],
-      ['isAuthenticated', 'true'],
-      ['userId', data.user.id],
-      ['userType', data.user.userType] // Store user type for future reference
-    ]);
-
-    showToast('success', 'Login Successful', `Welcome back, ${data.user.name || data.user.email}!`);
-    
-    // Check user type and redirect accordingly
-    if (data.user.userType === 'admin') {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'AdminDashboard' }],
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000, // 10 second timeout
       });
-    } else if (data.user.userType === 'vet') {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'VetDashboard' }],
-      });
-    } else {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Home' }],
-      });
-    }
 
-  } catch (error) {
-    console.error('Login Error:', error);
-    showToast(
-      'error', 
-      'Login Failed', 
-      error.message || 'An error occurred during login'
-    );
-  } finally {
-    setLoading(false);
-  }
-};
+      const { data } = response;
+
+      if (!data.success) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      if (!data.token || !data.user) {
+        throw new Error('Invalid response format');
+      }
+
+      await AsyncStorage.multiSet([
+        ['userToken', data.token],
+        ['userData', JSON.stringify(data.user)],
+        ['isAuthenticated', 'true'],
+        ['userId', data.user.id.toString()],
+        ['userType', data.user.userType || 'user'] // Store user type for future reference
+      ]);
+
+      showToast('success', 'Login Successful', `Welcome back, ${data.user.name || data.user.username || data.user.email}!`);
+      
+      // Check user type and redirect accordingly (removed vet navigation)
+      if (data.user.userType === 'admin') {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'AdminDashboard' }],
+        });
+      } else {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Home' }],
+        });
+      }
+
+    } catch (error) {
+      console.error('Login Error:', error);
+      
+      let errorMessage = 'An error occurred during login';
+      
+      if (error.response) {
+        // Server responded with error status
+        errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
+      } else if (error.request) {
+        // Network error
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.code === 'ECONNABORTED') {
+        // Timeout error
+        errorMessage = 'Request timeout. Please try again.';
+      } else {
+        // Other errors
+        errorMessage = error.message || errorMessage;
+      }
+
+      showToast('error', 'Login Failed', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <KeyboardAvoidingView 
@@ -142,6 +141,7 @@ const Login = ({ navigation }) => {
         <ScrollView 
           contentContainerStyle={styles.scrollContainer}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {/* Header Section */}
           <View style={styles.headerSection}>
@@ -158,59 +158,68 @@ const Login = ({ navigation }) => {
           
           {/* Form Section */}
           <View style={styles.formContainer}>
+            {/* Email Input */}
             <View style={styles.inputContainer}>
-              <View style={[
-                styles.inputWrapper,
-                focusedInput === 'email' && styles.inputWrapperFocused
-              ]}>
+              <Text style={styles.inputLabel}>Email Address</Text>
+              <View style={styles.inputWrapper}>
                 <Ionicons 
                   name="mail-outline" 
                   size={20} 
-                  color="#666666" 
+                  color="#A67C52" 
                   style={styles.inputIcon}
                 />
                 <TextInput
-                  style={styles.input}
-                  placeholder="Email Address"
+                  ref={emailInputRef}
+                  style={styles.textInput}
+                  placeholder="Enter your email"
                   placeholderTextColor="#999999"
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  onFocus={() => setFocusedInput('email')}
-                  onBlur={() => setFocusedInput(null)}
+                  autoComplete="email"
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordInputRef.current?.focus()}
+                  editable={!loading}
                 />
               </View>
-              
-              <View style={[
-                styles.inputWrapper,
-                focusedInput === 'password' && styles.inputWrapperFocused
-              ]}>
+            </View>
+
+            {/* Password Input */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <View style={styles.inputWrapper}>
                 <Ionicons 
                   name="lock-closed-outline" 
                   size={20} 
-                  color="#666666" 
+                  color="#A67C52" 
                   style={styles.inputIcon}
                 />
                 <TextInput
-                  style={[styles.input, styles.passwordInput]}
-                  placeholder="Password"
+                  ref={passwordInputRef}
+                  style={[styles.textInput, styles.passwordInput]}
+                  placeholder="Enter your password"
                   placeholderTextColor="#999999"
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
-                  onFocus={() => setFocusedInput('password')}
-                  onBlur={() => setFocusedInput(null)}
+                  autoCapitalize="none"
+                  autoComplete="password"
+                  returnKeyType="done"
+                  onSubmitEditing={handleLogin}
+                  editable={!loading}
                 />
                 <TouchableOpacity 
-                  style={styles.eyeIcon}
+                  style={styles.eyeButton}
                   onPress={() => setShowPassword(!showPassword)}
+                  activeOpacity={0.7}
+                  disabled={loading}
                 >
                   <Ionicons 
                     name={showPassword ? "eye-off-outline" : "eye-outline"} 
                     size={20} 
-                    color="#666666"
+                    color="#A67C52"
                   />
                 </TouchableOpacity>
               </View>
@@ -219,6 +228,7 @@ const Login = ({ navigation }) => {
             <TouchableOpacity 
               style={styles.forgotPassword}
               onPress={() => navigation.navigate('ForgotPassword')}
+              disabled={loading}
             >
               <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </TouchableOpacity>
@@ -227,6 +237,7 @@ const Login = ({ navigation }) => {
               style={[styles.loginButton, loading && styles.buttonDisabled]}
               onPress={handleLogin}
               disabled={loading}
+              activeOpacity={0.8}
             >
               <LinearGradient
                 colors={['#A67C52', '#8B5A3C']} // Rich brown gradient
@@ -257,13 +268,13 @@ const Login = ({ navigation }) => {
               </View>
               
               <View style={styles.socialButtons}>
-                <TouchableOpacity style={styles.socialButton}>
+                <TouchableOpacity style={styles.socialButton} disabled={loading}>
                   <Ionicons name="logo-google" size={24} color="#db4437" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.socialButton}>
+                <TouchableOpacity style={styles.socialButton} disabled={loading}>
                   <Ionicons name="logo-facebook" size={24} color="#4267B2" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.socialButton}>
+                <TouchableOpacity style={styles.socialButton} disabled={loading}>
                   <Ionicons name="logo-apple" size={24} color="#000" />
                 </TouchableOpacity>
               </View>
@@ -272,7 +283,10 @@ const Login = ({ navigation }) => {
             {/* Footer */}
             <View style={styles.footer}>
               <Text style={styles.footerText}>Don't have an account? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+              <TouchableOpacity 
+                onPress={() => navigation.navigate('Register')}
+                disabled={loading}
+              >
                 <Text style={styles.signUpText}>Sign Up</Text>
               </TouchableOpacity>
             </View>
@@ -293,134 +307,101 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
-    minHeight: height,
+    paddingHorizontal: 20,
+    paddingVertical: 40,
   },
   headerSection: {
     alignItems: 'center',
-    paddingTop: 60,
-    paddingBottom: 40,
+    marginBottom: 40,
   },
   logoContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 30,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 15,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    marginBottom: 20,
   },
   logo: {
-    width: 80,
-    height: 80,
+    width: 120,
+    height: 120,
   },
   welcomeText: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 8,
+    marginBottom: 10,
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
   },
   subtitle: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: '#f0f0f0',
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    opacity: 0.9,
   },
   formContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingHorizontal: 30,
-    paddingTop: 40,
-    paddingBottom: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 20,
+    padding: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
   },
   inputContainer: {
     marginBottom: 20,
   },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 8,
+  },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F1ED', // Warm light beige
-    borderRadius: 15,
-    marginBottom: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 5,
+    backgroundColor: '#F7FAFC',
+    borderRadius: 12,
     borderWidth: 2,
-    borderColor: 'transparent',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  inputWrapperFocused: {
-    borderColor: '#A67C52', // Rich brown focus
-    backgroundColor: '#FFFFFF',
-    shadowOpacity: 0.12,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    minHeight: 56,
   },
   inputIcon: {
-    marginRight: 15,
+    marginRight: 12,
   },
-  input: {
+  textInput: {
     flex: 1,
-    height: 50,
     fontSize: 16,
-    color: '#2D3748', // Darker gray text
+    color: '#2D3748',
+    paddingVertical: 0,
+    height: 24,
   },
   passwordInput: {
-    paddingRight: 40,
+    paddingRight: 10,
   },
-  eyeIcon: {
-    position: 'absolute',
-    right: 20,
-    padding: 5,
+  eyeButton: {
+    padding: 8,
+    marginLeft: 8,
+    marginRight: -8,
   },
   forgotPassword: {
     alignSelf: 'flex-end',
     marginBottom: 30,
+    paddingVertical: 5,
   },
   forgotPasswordText: {
-    color: '#A67C52', // Rich brown
+    color: '#A67C52',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   loginButton: {
-    borderRadius: 15,
+    borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 30,
-    shadowColor: '#e2a64b',
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 8,
   },
   buttonGradient: {
     flexDirection: 'row',
-    height: 55,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
   },
   buttonDisabled: {
     opacity: 0.7,
@@ -430,9 +411,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginRight: 10,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
   },
   buttonIcon: {
     marginLeft: 5,
@@ -443,17 +421,17 @@ const styles = StyleSheet.create({
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 25,
+    marginBottom: 20,
   },
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E8DDD4', // Light brown
+    backgroundColor: '#e0e0e0',
   },
   dividerText: {
-    marginHorizontal: 20,
-    color: '#718096', // Medium gray
+    color: '#666',
     fontSize: 14,
+    paddingHorizontal: 20,
   },
   socialButtons: {
     flexDirection: 'row',
@@ -461,35 +439,26 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   socialButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#F5F1ED', // Warm light beige
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#f8f8f8',
     borderWidth: 1,
-    borderColor: '#E8DDD4', // Light brown border
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: '#e0e0e0',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
   },
   footerText: {
-    color: '#718096', // Medium gray
+    color: '#666',
     fontSize: 16,
   },
   signUpText: {
-    color: '#A67C52', // Rich brown
+    color: '#A67C52',
     fontSize: 16,
     fontWeight: '600',
   },
