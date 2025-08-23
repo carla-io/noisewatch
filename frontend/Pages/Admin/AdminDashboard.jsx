@@ -46,18 +46,37 @@ const AdminDashboard = () => {
 
   // Data state
   const [data, setData] = useState({
-    users: 0,
-    animals: 0,
-    tasks: [],
-    pendingTasks: 0,
-    completedTasks: 0
+    reportsToday: 0,
+    flaggedAreas: 0,
+    totalReports: 0,
+    resolvedReports: 0,
+    recentReports: [],
+    noiseCategories: [
+      { type: 'traffic', count: 45, color: '#D2B48C' },
+      { type: 'music', count: 32, color: '#DAA520' },
+      { type: 'construction', count: 28, color: '#B8860B' },
+      { type: 'shouting', count: 15, color: '#8B7355' },
+      { type: 'machinery', count: 12, color: '#CD853F' }
+    ],
+    topNoiseSources: [
+      { location: 'Main Street & 5th Ave', reports: 18, level: 'high' },
+      { location: 'Central Park Area', reports: 14, level: 'medium' },
+      { location: 'Industrial Zone', reports: 12, level: 'high' },
+      { location: 'University District', reports: 9, level: 'medium' },
+      { location: 'Downtown Plaza', reports: 7, level: 'low' }
+    ],
+    alerts: [
+      { id: 1, type: 'repeated', location: 'Main Street', message: '5 reports in 2 hours', severity: 'high' },
+      { id: 2, type: 'threshold', location: 'Industrial Zone', message: 'Noise level above 85dB', severity: 'critical' },
+      { id: 3, type: 'pattern', location: 'University District', message: 'Late night disturbances', severity: 'medium' }
+    ]
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [exportLoading, setExportLoading] = useState(false);
 
-  // Fetch data from API
+  // Mock data - replace with actual API calls
   const fetchData = async (isRefresh = false) => {
     try {
       if (isRefresh) {
@@ -67,31 +86,66 @@ const AdminDashboard = () => {
       }
       setError(null);
 
-      const [usersRes, animalsRes, tasksRes, pendingRes, completedRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/user/countUsersOnly`),
-        fetch(`${API_BASE_URL}/animal/count`),
-        fetch(`${API_BASE_URL}/tasks/getAll`),
-        fetch(`${API_BASE_URL}/tasks/count/pending`),
-        fetch(`${API_BASE_URL}/tasks/count/completed`)
-      ]);
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      if (!usersRes.ok || !animalsRes.ok || !tasksRes.ok || !pendingRes.ok || !completedRes.ok) {
-        throw new Error('Failed to fetch data from one or more APIs');
-      }
+      // Mock recent reports data
+      const mockRecentReports = [
+        {
+          id: 1,
+          type: 'traffic',
+          location: 'Main Street & 5th Ave',
+          reporter: 'John Doe',
+          time: '2 min ago',
+          level: 'high',
+          status: 'pending'
+        },
+        {
+          id: 2,
+          type: 'music',
+          location: 'Central Park',
+          reporter: 'Jane Smith',
+          time: '5 min ago',
+          level: 'medium',
+          status: 'investigating'
+        },
+        {
+          id: 3,
+          type: 'construction',
+          location: 'Industrial Zone',
+          reporter: 'Mike Johnson',
+          time: '8 min ago',
+          level: 'high',
+          status: 'resolved'
+        },
+        {
+          id: 4,
+          type: 'shouting',
+          location: 'University District',
+          reporter: 'Sarah Wilson',
+          time: '12 min ago',
+          level: 'low',
+          status: 'pending'
+        },
+        {
+          id: 5,
+          type: 'machinery',
+          location: 'Downtown Plaza',
+          reporter: 'David Brown',
+          time: '15 min ago',
+          level: 'medium',
+          status: 'resolved'
+        }
+      ];
 
-      const usersData = await usersRes.json();
-      const animalsData = await animalsRes.json();
-      const tasksData = await tasksRes.json();
-      const pendingData = await pendingRes.json();
-      const completedData = await completedRes.json();
-
-      setData({
-        users: usersData.count,
-        animals: animalsData.count,
-        tasks: tasksData,
-        pendingTasks: pendingData.count,
-        completedTasks: completedData.count
-      });
+      setData(prevData => ({
+        ...prevData,
+        reportsToday: 47,
+        flaggedAreas: 3,
+        totalReports: 132,
+        resolvedReports: 85,
+        recentReports: mockRecentReports
+      }));
     } catch (err) {
       setError(err.message);
       console.error('Error fetching data:', err);
@@ -108,25 +162,34 @@ const AdminDashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // PDF Report Generation
+  // PDF Report Generation for noise monitoring
   const generateHTMLReport = () => {
     const currentDate = new Date().toLocaleDateString();
     const currentTime = new Date().toLocaleTimeString();
     
-    // Calculate task completion rate
-    const totalTasks = data.pendingTasks + data.completedTasks;
-    const completionRate = totalTasks > 0 ? ((data.completedTasks / totalTasks) * 100).toFixed(1) : 0;
+    const totalCategoryReports = data.noiseCategories.reduce((sum, cat) => sum + cat.count, 0);
 
-    // Generate task list HTML
-    const taskListHTML = data.tasks.map((task, index) => `
+    const categoryListHTML = data.noiseCategories.map((category, index) => `
       <tr style="border-bottom: 1px solid #e2e8f0;">
         <td style="padding: 8px; text-align: left;">${index + 1}</td>
-        <td style="padding: 8px; text-align: left;">${task.type ? task.type.replace('_', ' ') : 'Task'}</td>
-        <td style="padding: 8px; text-align: left;">${(task.animalId && task.animalId.name) || 'Unknown Animal'}</td>
-        <td style="padding: 8px; text-align: left;">${(task.assignedTo && task.assignedTo.name) || 'Unassigned'}</td>
+        <td style="padding: 8px; text-align: left; text-transform: capitalize;">${category.type}</td>
+        <td style="padding: 8px; text-align: center;">${category.count}</td>
+        <td style="padding: 8px; text-align: center;">${((category.count / totalCategoryReports) * 100).toFixed(1)}%</td>
+      </tr>
+    `).join('');
+
+    const recentReportsHTML = data.recentReports.slice(0, 10).map((report, index) => `
+      <tr style="border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 8px; text-align: left;">${index + 1}</td>
+        <td style="padding: 8px; text-align: left; text-transform: capitalize;">${report.type}</td>
+        <td style="padding: 8px; text-align: left;">${report.location}</td>
+        <td style="padding: 8px; text-align: left;">${report.reporter}</td>
+        <td style="padding: 8px; text-align: left;">${report.time}</td>
         <td style="padding: 8px; text-align: center;">
-          <span style="padding: 4px 8px; border-radius: 12px; font-size: 12px; color: white; background-color: ${task.status === 'completed' ? '#38a169' : '#ed8936'};">
-            ${task.status || 'pending'}
+          <span style="padding: 4px 8px; border-radius: 12px; font-size: 12px; color: white; background-color: ${
+            report.status === 'resolved' ? '#8B7355' : report.status === 'investigating' ? '#DAA520' : '#B8860B'
+          };">
+            ${report.status}
           </span>
         </td>
       </tr>
@@ -137,17 +200,17 @@ const AdminDashboard = () => {
     <html>
     <head>
       <meta charset="utf-8">
-      <title>Captivity & Care - Admin Dashboard Report</title>
+      <title>Noise Monitoring System - Admin Dashboard Report</title>
       <style>
         body {
           font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
           margin: 0;
           padding: 20px;
-          background-color: #f8fafc;
-          color: #2d3748;
+          background-color: #faf8f3;
+          color: #3e2723;
         }
         .header {
-          background: linear-gradient(135deg, #315342, #1e3a2a);
+          background: linear-gradient(135deg, #8B4513, #D2B48C);
           color: white;
           padding: 30px;
           border-radius: 10px;
@@ -168,12 +231,12 @@ const AdminDashboard = () => {
           background: white;
           padding: 20px;
           border-radius: 8px;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          box-shadow: 0 1px 3px rgba(139,69,19,0.1);
           margin-bottom: 30px;
         }
         .report-info h2 {
           margin-top: 0;
-          color: #315342;
+          color: #8B4513;
           font-size: 20px;
         }
         .stats-grid {
@@ -186,104 +249,63 @@ const AdminDashboard = () => {
           background: white;
           padding: 25px;
           border-radius: 10px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-          border-left: 4px solid #315342;
+          box-shadow: 0 2px 4px rgba(139,69,19,0.1);
+          border-left: 4px solid #DAA520;
         }
         .stats-card h3 {
           margin: 0 0 10px 0;
           font-size: 14px;
-          color: #718096;
+          color: #8B7355;
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
         .stats-card .value {
           font-size: 32px;
           font-weight: bold;
-          color: #315342;
+          color: #8B4513;
           margin: 0;
         }
-        .stats-card .trend {
-          font-size: 12px;
-          color: #38a169;
-          margin-top: 5px;
-        }
-        .tasks-section {
+        .section {
           background: white;
           padding: 25px;
           border-radius: 10px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          box-shadow: 0 2px 4px rgba(139,69,19,0.1);
           margin-bottom: 30px;
         }
-        .tasks-section h2 {
+        .section h2 {
           margin: 0 0 20px 0;
-          color: #315342;
+          color: #8B4513;
           font-size: 20px;
         }
-        .task-table {
+        .table {
           width: 100%;
           border-collapse: collapse;
           margin-top: 15px;
         }
-        .task-table th {
-          background-color: #f7fafc;
+        .table th {
+          background-color: #faf8f3;
           padding: 12px 8px;
           text-align: left;
           font-weight: 600;
-          color: #4a5568;
-          border-bottom: 2px solid #e2e8f0;
+          color: #5d4037;
+          border-bottom: 2px solid #e8dcc6;
         }
-        .task-table td {
+        .table td {
           padding: 8px;
-          border-bottom: 1px solid #e2e8f0;
-        }
-        .summary-section {
-          background: white;
-          padding: 25px;
-          border-radius: 10px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .summary-section h2 {
-          margin: 0 0 15px 0;
-          color: #315342;
-          font-size: 20px;
-        }
-        .summary-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 20px;
-        }
-        .summary-item {
-          padding: 15px;
-          background: #f7fafc;
-          border-radius: 8px;
-        }
-        .summary-item h4 {
-          margin: 0 0 5px 0;
-          color: #4a5568;
-          font-size: 14px;
-        }
-        .summary-item p {
-          margin: 0;
-          font-size: 18px;
-          font-weight: bold;
-          color: #315342;
+          border-bottom: 1px solid #e8dcc6;
         }
         .footer {
           text-align: center;
           margin-top: 40px;
           padding: 20px;
-          color: #718096;
+          color: #8B7355;
           font-size: 12px;
-        }
-        @media print {
-          body { background-color: white; }
-          .stats-grid { grid-template-columns: repeat(4, 1fr); }
         }
       </style>
     </head>
     <body>
       <div class="header">
-        <h1>Captivity & Care</h1>
+        <h1>Noise Monitoring System</h1>
         <p>Admin Dashboard Report</p>
       </div>
 
@@ -291,76 +313,66 @@ const AdminDashboard = () => {
         <h2>Report Information</h2>
         <p><strong>Generated on:</strong> ${currentDate} at ${currentTime}</p>
         <p><strong>Report Type:</strong> Complete Dashboard Overview</p>
-        <p><strong>Data Source:</strong> Live API Data</p>
+        <p><strong>Data Source:</strong> Live Noise Monitoring System</p>
       </div>
 
       <div class="stats-grid">
         <div class="stats-card">
-          <h3>Total Users</h3>
-          <div class="value">${data.users}</div>
-          <div class="trend">↗ +12% from last month</div>
+          <h3>Reports Today</h3>
+          <div class="value">${data.reportsToday}</div>
         </div>
         <div class="stats-card">
-          <h3>Total Animals</h3>
-          <div class="value">${data.animals}</div>
-          <div class="trend">↗ +8% from last month</div>
+          <h3>Flagged Areas</h3>
+          <div class="value">${data.flaggedAreas}</div>
         </div>
         <div class="stats-card">
-          <h3>Pending Tasks</h3>
-          <div class="value">${data.pendingTasks}</div>
-          <div class="trend">Requires attention</div>
+          <h3>Total Reports</h3>
+          <div class="value">${data.totalReports}</div>
         </div>
         <div class="stats-card">
-          <h3>Completed Tasks</h3>
-          <div class="value">${data.completedTasks}</div>
-          <div class="trend">↗ +24% completion rate</div>
+          <h3>Resolved Reports</h3>
+          <div class="value">${data.resolvedReports}</div>
         </div>
       </div>
 
-      <div class="tasks-section">
-        <h2>Recent Tasks Overview</h2>
-        <p>Showing ${Math.min(data.tasks.length, 10)} most recent tasks</p>
-        
-        <table class="task-table">
+      <div class="section">
+        <h2>Noise Categories Breakdown</h2>
+        <table class="table">
           <thead>
             <tr>
               <th>#</th>
-              <th>Task Type</th>
-              <th>Animal</th>
-              <th>Assigned To</th>
-              <th>Status</th>
+              <th>Category</th>
+              <th>Reports</th>
+              <th>Percentage</th>
             </tr>
           </thead>
           <tbody>
-            ${taskListHTML || '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #718096;">No tasks available</td></tr>'}
+            ${categoryListHTML}
           </tbody>
         </table>
       </div>
 
-      <div class="summary-section">
-        <h2>Summary Statistics</h2>
-        <div class="summary-grid">
-          <div class="summary-item">
-            <h4>Task Completion Rate</h4>
-            <p>${completionRate}%</p>
-          </div>
-          <div class="summary-item">
-            <h4>Total Tasks</h4>
-            <p>${totalTasks}</p>
-          </div>
-          <div class="summary-item">
-            <h4>User to Animal Ratio</h4>
-            <p>${data.animals > 0 ? (data.users / data.animals).toFixed(1) : 0}:1</p>
-          </div>
-          <div class="summary-item">
-            <h4>System Status</h4>
-            <p style="color: #38a169;">Active</p>
-          </div>
-        </div>
+      <div class="section">
+        <h2>Recent Reports</h2>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Type</th>
+              <th>Location</th>
+              <th>Reporter</th>
+              <th>Time</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${recentReportsHTML}
+          </tbody>
+        </table>
       </div>
 
       <div class="footer">
-        <p>This report was automatically generated by the Captivity & Care Admin System</p>
+        <p>This report was automatically generated by the Noise Monitoring Admin System</p>
         <p>For questions or support, please contact the system administrator</p>
       </div>
     </body>
@@ -368,99 +380,23 @@ const AdminDashboard = () => {
     `;
   };
 
-  // Alternative: Create a simple text-based report for backup
-  const generateTextReport = () => {
-    const currentDate = new Date().toLocaleDateString();
-    const currentTime = new Date().toLocaleTimeString();
-    const totalTasks = data.pendingTasks + data.completedTasks;
-    const completionRate = totalTasks > 0 ? ((data.completedTasks / totalTasks) * 100).toFixed(1) : 0;
-
-    const taskList = data.tasks.map((task, index) => {
-      return `${index + 1}. ${task.type ? task.type.replace('_', ' ') : 'Task'} - ${(task.animalId && task.animalId.name) || 'Unknown Animal'} - Assigned to: ${(task.assignedTo && task.assignedTo.name) || 'Unassigned'} - Status: ${task.status || 'pending'}`;
-    }).join('\n');
-
-    return `CAPTIVITY & CARE - ADMIN DASHBOARD REPORT
-Generated on: ${currentDate} at ${currentTime}
-
-SUMMARY STATISTICS:
-- Total Users: ${data.users}
-- Total Animals: ${data.animals}
-- Pending Tasks: ${data.pendingTasks}
-- Completed Tasks: ${data.completedTasks}
-- Task Completion Rate: ${completionRate}%
-- Total Tasks: ${totalTasks}
-
-RECENT TASKS:
-${taskList || 'No tasks available'}
-
-SYSTEM STATUS:
-- Data Source: Live API Data
-- Auto-refresh: Every 30 seconds
-- System Status: Active
-
-This report was automatically generated by the Captivity & Care Admin System.
-For questions or support, please contact the system administrator.
-`;
-  };
-
-  const handleExportTextReport = async () => {
-    try {
-      setExportLoading(true);
-
-      const textContent = generateTextReport();
-      const currentDate = new Date().toISOString().split('T')[0];
-      const currentTime = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
-      const fileName = `Captivity_Care_Report_${currentDate}_${currentTime}.txt`;
-
-      // Create text file
-      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-      await FileSystem.writeAsStringAsync(fileUri, textContent);
-
-      // Share the text file
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'text/plain',
-          dialogTitle: 'Share Captivity & Care Report (Text)',
-        });
-      } else {
-        Alert.alert('Sharing Unavailable', 'Sharing is not available on this device.');
-      }
-
-    } catch (error) {
-      console.error('Error generating text report:', error);
-      Alert.alert('Export Error', 'Could not generate text report.');
-    } finally {
-      setExportLoading(false);
-    }
-  };
-
   const handleExportReport = async () => {
     try {
       setExportLoading(true);
-
-      // Generate HTML content
       const htmlContent = generateHTMLReport();
 
-      // Create PDF
       const { uri } = await Print.printToFileAsync({
         html: htmlContent,
         base64: false,
         width: 612,
         height: 792,
-        margin: {
-          left: 20,
-          top: 20,
-          right: 20,
-          bottom: 20,
-        },
+        margin: { left: 20, top: 20, right: 20, bottom: 20 },
       });
 
-      // Create filename with current date and time
       const currentDate = new Date().toISOString().split('T')[0];
       const currentTime = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
-      const fileName = `Captivity_Care_Report_${currentDate}_${currentTime}.pdf`;
+      const fileName = `Noise_Monitoring_Report_${currentDate}_${currentTime}.pdf`;
 
-      // Move file to documents directory
       const documentDirectory = FileSystem.documentDirectory;
       const fileUri = `${documentDirectory}${fileName}`;
       
@@ -469,104 +405,27 @@ For questions or support, please contact the system administrator.
         to: fileUri,
       });
 
-      // Show options to user
       Alert.alert(
         'Report Generated Successfully! 📊',
-        `Your PDF report "${fileName}" has been created. Choose an option:`,
+        `Your PDF report "${fileName}" has been created.`,
         [
           {
             text: 'Share Report',
             onPress: async () => {
-              try {
-                if (await Sharing.isAvailableAsync()) {
-                  await Sharing.shareAsync(fileUri, {
-                    mimeType: 'application/pdf',
-                    dialogTitle: 'Share Captivity & Care Report',
-                    UTI: 'com.adobe.pdf',
-                  });
-                } else {
-                  Alert.alert('Sharing Unavailable', 'Sharing is not available on this device.');
-                }
-              } catch (error) {
-                console.error('Error sharing file:', error);
-                Alert.alert('Sharing Error', 'Could not share the file. Please try again.');
-              }
-            },
-          },
-          {
-            text: 'Save to Files',
-            onPress: async () => {
-              try {
-                // Use the device's native file picker to save
-                if (Platform.OS === 'android') {
-                  // For Android, we'll use the sharing intent which allows saving to Downloads
-                  await Sharing.shareAsync(fileUri, {
-                    mimeType: 'application/pdf',
-                    dialogTitle: 'Save Report to Files',
-                    UTI: 'com.adobe.pdf',
-                  });
-                  Alert.alert(
-                    'Save Instructions',
-                    'In the sharing menu, select "Save to Files" or "Downloads" to save the PDF to your device.',
-                    [{ text: 'Got it!' }]
-                  );
-                } else {
-                  // For iOS, direct sharing works better
-                  await Sharing.shareAsync(fileUri, {
-                    mimeType: 'application/pdf',
-                    dialogTitle: 'Save Report',
-                  });
-                }
-              } catch (error) {
-                console.error('Error saving file:', error);
-                Alert.alert(
-                  'Save Error',
-                  'Could not open the save dialog. You can use the "Share Report" option to save via your device\'s sharing menu.',
-                  [{ text: 'OK' }]
-                );
-              }
-            },
-          },
-          {
-            text: 'Open in App',
-            onPress: async () => {
-              try {
-                // Try to open the PDF in the default PDF viewer
-                if (Platform.OS === 'android') {
-                  await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-                    data: fileUri,
-                    type: 'application/pdf',
-                    flags: 1, // FLAG_ACTIVITY_NEW_TASK
-                  });
-                } else {
-                  // For iOS, use sharing which will show "Open in..." options
-                  await Sharing.shareAsync(fileUri, {
-                    mimeType: 'application/pdf',
-                    dialogTitle: 'Open Report',
-                  });
-                }
-              } catch (error) {
-                console.error('Error opening file:', error);
-                Alert.alert(
-                  'Open Error',
-                  'Could not open the PDF. Please use the share option to open it in another app.',
-                  [{ text: 'OK' }]
-                );
+              if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(fileUri, {
+                  mimeType: 'application/pdf',
+                  dialogTitle: 'Share Noise Monitoring Report',
+                });
               }
             },
           },
           { text: 'Close', style: 'cancel' }
-        ],
-        { cancelable: true }
+        ]
       );
-
     } catch (error) {
       console.error('Error generating report:', error);
-      Alert.alert(
-        'Export Error',
-        'There was an error generating the report. Please check your internet connection and try again.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Export Error', 'Could not generate report.');
     } finally {
       setExportLoading(false);
     }
@@ -635,177 +494,265 @@ For questions or support, please contact the system administrator.
   };
 
   // Render functions
-  const renderStatsCard = (title, value, icon, color, trend, loading) => (
-    <View style={[styles.statsCard, { borderLeftColor: color }]}>
-      <View style={styles.statsContent}>
-        <View style={styles.statsInfo}>
-          <Text style={styles.statsTitle}>{title}</Text>
+  const renderSummaryCard = (title, value, icon, color, trend, loading) => (
+    <View style={[styles.summaryCard, { borderLeftColor: color }]}>
+      <View style={styles.summaryContent}>
+        <View style={styles.summaryInfo}>
+          <Text style={styles.summaryTitle}>{title}</Text>
           {loading ? (
             <ActivityIndicator size="small" color={color} />
           ) : (
             <View>
-              <Text style={[styles.statsValue, { color }]}>{value}</Text>
-              {trend && <Text style={styles.statsTrend}>↗ {trend}</Text>}
+              <Text style={[styles.summaryValue, { color }]}>{value}</Text>
+              {trend && <Text style={styles.summaryTrend}>↗ {trend}</Text>}
             </View>
           )}
         </View>
-        <View style={[styles.statsIcon, { backgroundColor: color + '20' }]}>
+        <View style={[styles.summaryIcon, { backgroundColor: color + '20' }]}>
           <Ionicons name={icon} size={24} color={color} />
         </View>
       </View>
     </View>
   );
 
+  const renderNoiseCategoryChart = () => (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle}>Top Noise Categories</Text>
+      </View>
+      <View style={styles.cardContent}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#DAA520" />
+          </View>
+        ) : (
+          <View style={styles.chartContainer}>
+            {data.noiseCategories.map((category, index) => {
+              const total = data.noiseCategories.reduce((sum, cat) => sum + cat.count, 0);
+              const percentage = ((category.count / total) * 100).toFixed(1);
+              return (
+                <View key={index} style={styles.categoryItem}>
+                  <View style={styles.categoryInfo}>
+                    <View style={[styles.categoryColor, { backgroundColor: category.color }]} />
+                    <Text style={styles.categoryName}>{category.type}</Text>
+                  </View>
+                  <View style={styles.categoryStats}>
+                    <Text style={styles.categoryCount}>{category.count}</Text>
+                    <Text style={styles.categoryPercent}>{percentage}%</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </View>
+    </View>
+  );
+
+  const renderRecentReports = () => (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle}>Recent Reports</Text>
+        <TouchableOpacity style={styles.viewAllBtn}>
+          <Text style={styles.viewAllText}>View All</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.cardContent}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#DAA520" />
+          </View>
+        ) : (
+          <View style={styles.reportsList}>
+            {data.recentReports.slice(0, 5).map((report, index) => (
+              <View key={report.id} style={styles.reportItem}>
+                <View style={styles.reportIcon}>
+                  <Ionicons 
+                    name={getNoiseIcon(report.type)} 
+                    size={20} 
+                    color={getReportLevelColor(report.level)} 
+                  />
+                </View>
+                <View style={styles.reportInfo}>
+                  <View style={styles.reportHeader}>
+                    <Text style={styles.reportType}>{report.type.toUpperCase()}</Text>
+                    <Text style={styles.reportTime}>{report.time}</Text>
+                  </View>
+                  <Text style={styles.reportLocation}>{report.location}</Text>
+                  <Text style={styles.reportReporter}>Reported by {report.reporter}</Text>
+                </View>
+                <View style={[
+                  styles.statusBadge,
+                  { backgroundColor: getStatusColor(report.status) + '20' }
+                ]}>
+                  <Text style={[
+                    styles.statusText,
+                    { color: getStatusColor(report.status) }
+                  ]}>
+                    {report.status}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    </View>
+  );
+
+  const renderAlertsAndFlags = () => (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle}>Alerts & Flags</Text>
+        <View style={styles.alertCount}>
+          <Text style={styles.alertCountText}>{data.alerts.length}</Text>
+        </View>
+      </View>
+      <View style={styles.cardContent}>
+        <View style={styles.alertsList}>
+          {data.alerts.map((alert) => (
+            <View key={alert.id} style={styles.alertItem}>
+              <View style={[
+                styles.alertIndicator,
+                { backgroundColor: getAlertSeverityColor(alert.severity) }
+              ]} />
+              <View style={styles.alertContent}>
+                <View style={styles.alertHeader}>
+                  <Text style={styles.alertLocation}>{alert.location}</Text>
+                  <Text style={[
+                    styles.alertSeverity,
+                    { color: getAlertSeverityColor(alert.severity) }
+                  ]}>
+                    {alert.severity.toUpperCase()}
+                  </Text>
+                </View>
+                <Text style={styles.alertMessage}>{alert.message}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderTopNoiseSources = () => (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle}>Top Noise Sources</Text>
+      </View>
+      <View style={styles.cardContent}>
+        <View style={styles.sourcesList}>
+          {data.topNoiseSources.map((source, index) => (
+            <View key={index} style={styles.sourceItem}>
+              <View style={styles.sourceRank}>
+                <Text style={styles.sourceRankText}>{index + 1}</Text>
+              </View>
+              <View style={styles.sourceInfo}>
+                <Text style={styles.sourceLocation}>{source.location}</Text>
+                <Text style={styles.sourceReports}>{source.reports} reports</Text>
+              </View>
+              <View style={[
+                styles.levelIndicator,
+                { backgroundColor: getReportLevelColor(source.level) }
+              ]}>
+                <Text style={styles.levelText}>{source.level}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+
+  // Helper functions
+  const getNoiseIcon = (type) => {
+    const icons = {
+      traffic: 'car-outline',
+      music: 'musical-notes-outline',
+      construction: 'construct-outline',
+      shouting: 'megaphone-outline',
+      machinery: 'cog-outline'
+    };
+    return icons[type] || 'volume-high-outline';
+  };
+
+  const getReportLevelColor = (level) => {
+    const colors = {
+      high: '#8B4513',
+      medium: '#DAA520',
+      low: '#D2B48C'
+    };
+    return colors[level] || '#8B7355';
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      pending: '#B8860B',
+      investigating: '#DAA520',
+      resolved: '#8B7355'
+    };
+    return colors[status] || '#8B7355';
+  };
+
+  const getAlertSeverityColor = (severity) => {
+    const colors = {
+      critical: '#8B0000',
+      high: '#B8860B',
+      medium: '#DAA520'
+    };
+    return colors[severity] || '#8B7355';
+  };
+
   const renderDashboard = () => (
     <View style={styles.dashboardContainer}>
       {/* Header Actions */}
       <View style={styles.pageHeader}>
-        <Text style={styles.sectionTitle}>Dashboard Overview</Text>
-        <View style={styles.headerActions}>
-          {/* <TouchableOpacity
-            style={[styles.btn, styles.btnSecondary]}
-            onPress={handleRefresh}
-            disabled={loading || refreshing}
-          >
-            <Text style={styles.btnSecondaryText}>
-              {loading || refreshing ? 'Refreshing...' : 'Refresh'}
-            </Text>
-          </TouchableOpacity> */}
-          <TouchableOpacity
-            style={[styles.btn, styles.btnPrimary, exportLoading && styles.btnDisabled]}
-            onPress={() => {
-              Alert.alert(
-                'Export Report',
-                'Choose your preferred export format:',
-                [
-                  {
-                    text: 'PDF Format',
-                    onPress: handleExportReport,
-                  },
-                  {
-                    text: 'Text Format',
-                    onPress: handleExportTextReport,
-                  },
-                  {
-                    text: 'Cancel',
-                    style: 'cancel',
-                  },
-                ]
-              );
-            }}
-            disabled={exportLoading || loading}
-          >
-            {exportLoading ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Ionicons name="download-outline" size={16} color="white" />
-            )}
-            <Text style={styles.btnPrimaryText}>
-              {exportLoading ? 'Generating...' : 'Export Report'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.sectionTitle}>Noise Monitoring</Text>
+        <TouchableOpacity
+          style={[styles.btn, styles.btnPrimary, exportLoading && styles.btnDisabled]}
+          onPress={handleExportReport}
+          disabled={exportLoading || loading}
+        >
+          {exportLoading ? (
+            <ActivityIndicator size="small" color="white" />
+          ) : (
+            <Ionicons name="download-outline" size={16} color="white" />
+          )}
+          <Text style={styles.btnPrimaryText}>
+            {exportLoading ? 'Generating...' : 'Export Report'}
+          </Text>
+        </TouchableOpacity>
       </View>
       
-      {/* Stats Grid */}
-      <View style={styles.statsGrid}>
-        {renderStatsCard('Total Users', data.users, 'people-outline', '#3182ce', '+12%', loading)}
-        {renderStatsCard('Total Animals', data.animals, 'paw-outline', '#38a169', '+8%', loading)}
-        {renderStatsCard('Pending Tasks', data.pendingTasks, 'time-outline', '#e53e3e', null, loading)}
-        {renderStatsCard('Completed Tasks', data.completedTasks, 'checkmark-circle-outline', '#805ad5', '+24%', loading)}
+      {/* Summary Cards */}
+      <View style={styles.summaryGrid}>
+        {renderSummaryCard('Reports Today', data.reportsToday, 'today-outline', '#DAA520', '+15%', loading)}
+        {renderSummaryCard('Flagged Areas', data.flaggedAreas, 'warning-outline', '#B8860B', null, loading)}
+        {renderSummaryCard('Total Reports', data.totalReports, 'bar-chart-outline', '#8B4513', '+8%', loading)}
+        {renderSummaryCard('Resolved', data.resolvedReports, 'checkmark-circle-outline', '#8B7355', '64%', loading)}
       </View>
 
-      {/* Recent Tasks */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>Recent Tasks</Text>
-        </View>
-        <View style={styles.cardContent}>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#3182ce" />
-              <Text style={styles.loadingText}>Loading tasks...</Text>
-            </View>
-          ) : data.tasks.length === 0 ? (
-            <Text style={styles.noData}>No tasks available</Text>
-          ) : (
-            <View style={styles.taskList}>
-              {data.tasks.slice(0, 5).map((task, index) => (
-                <View key={task.id || index} style={styles.taskItem}>
-                  <View style={styles.taskInfo}>
-                    <Text style={styles.taskTitle}>
-                      {task.type ? task.type.replace('_', ' ') : 'Task'}
-                    </Text>
-                    <Text style={styles.taskDescription}>
-                      {(task.animalId && task.animalId.name) || 'Unknown Animal'} -{' '}
-                      {(task.assignedTo && task.assignedTo.name) || 'Unassigned'}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.badge,
-                      task.status === 'completed' ? styles.badgeGreen : styles.badgeOrange
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        task.status === 'completed' ? styles.badgeTextGreen : styles.badgeTextOrange
-                      ]}
-                    >
-                      {task.status || 'pending'}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-      </View>
+      {/* Noise Categories Chart */}
+      {renderNoiseCategoryChart()}
 
-      {/* System Activity */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>System Activity</Text>
-        </View>
-        <View style={styles.cardContent}>
-          <View style={styles.activityList}>
-            <View style={styles.activityItem}>
-              <View style={[styles.activityIndicator, styles.activityIndicatorGreen]} />
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>Data refreshed successfully</Text>
-                <Text style={styles.activityTime}>
-                  {loading || refreshing ? 'Refreshing...' : 'Just now'}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.activityItem}>
-              <View style={[styles.activityIndicator, styles.activityIndicatorBlue]} />
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>Dashboard loaded</Text>
-                <Text style={styles.activityTime}>Connected to API</Text>
-              </View>
-            </View>
-            <View style={styles.activityItem}>
-              <View style={[styles.activityIndicator, styles.activityIndicatorOrange]} />
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>Auto-refresh enabled</Text>
-                <Text style={styles.activityTime}>Every 30 seconds</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-      </View>
+      {/* Recent Reports */}
+      {renderRecentReports()}
+
+      {/* Top Noise Sources */}
+      {renderTopNoiseSources()}
+
+      {/* Alerts & Flags */}
+      {renderAlertsAndFlags()}
     </View>
   );
 
   if (error) {
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#315342" />
+        <StatusBar barStyle="light-content" backgroundColor="#8B4513" />
         <View style={styles.errorContainer}>
           <View style={styles.errorCard}>
-            <Ionicons name="alert-circle-outline" size={48} color="#e53e3e" />
+            <Ionicons name="alert-circle-outline" size={48} color="#B8860B" />
             <Text style={styles.errorTitle}>Unable to load dashboard</Text>
             <Text style={styles.errorMessage}>{error}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={() => fetchData()}>
@@ -819,29 +766,32 @@ For questions or support, please contact the system administrator.
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#315342" />
+      <StatusBar barStyle="light-content" backgroundColor="#8B4513" />
       
       {/* Header */}
       <LinearGradient
-        colors={['#315342', '#1e3a2a']}
+        colors={['#8B4513', '#D2B48C']}
         style={styles.header}
       >
         <View style={styles.headerContent}>
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={openDrawer} style={styles.headerButton}>
-              <Ionicons name="menu" size={28} color="#a4d9ab" />
+              <Ionicons name="menu" size={28} color="#F5DEB3" />
             </TouchableOpacity>
             <View style={styles.headerRight}>
               <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.headerButton}>
-                <Ionicons name="notifications-outline" size={28} color="#a4d9ab" />
+                <Ionicons name="notifications-outline" size={28} color="#F5DEB3" />
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>3</Text>
+                </View>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleLogout} style={styles.headerButton}>
-                <Ionicons name="log-out-outline" size={28} color="#a4d9ab" />
+                <Ionicons name="log-out-outline" size={28} color="#F5DEB3" />
               </TouchableOpacity>
             </View>
           </View>
-          <Text style={styles.headerTitle}>Captivity & Care</Text>
-          <Text style={styles.headerSubtitle}>Admin Panel</Text>
+          <Text style={styles.headerTitle}>Noise Monitor</Text>
+          <Text style={styles.headerSubtitle}>Admin Dashboard</Text>
         </View>
       </LinearGradient>
 
@@ -853,7 +803,7 @@ For questions or support, please contact the system administrator.
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={['#315342']}
+            colors={['#8B4513']}
           />
         }
       >
@@ -875,28 +825,22 @@ For questions or support, please contact the system administrator.
   );
 };
 
-// Add these styles to your existing StyleSheet
-const additionalStyles = StyleSheet.create({
-  btnDisabled: {
-    opacity: 0.6,
-  },
-});
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#faf8f3',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#faf8f3',
+    paddingVertical: 40,
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#64748b',
+    color: '#8B7355',
   },
   errorContainer: {
     flex: 1,
@@ -909,7 +853,7 @@ const styles = StyleSheet.create({
     padding: 30,
     borderRadius: 12,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#8B4513',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -918,18 +862,18 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#3e2723',
     marginTop: 10,
     marginBottom: 5,
   },
   errorMessage: {
     fontSize: 14,
-    color: '#64748b',
+    color: '#8B7355',
     textAlign: 'center',
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#315342',
+    backgroundColor: '#8B4513',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
@@ -940,10 +884,9 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingBottom: 30,
-       paddingTop: getStatusBarHeight(),
-       borderBottomLeftRadius: 30,
-       borderBottomRightRadius: 30,
-       backgroundColor: '#315342',
+    paddingTop: getStatusBarHeight(),
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
   headerContent: {
     paddingHorizontal: 20,
@@ -956,6 +899,7 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     padding: 8,
+    position: 'relative',
   },
   headerRight: {
     flexDirection: 'row',
@@ -969,7 +913,23 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 16,
-    color: '#a4d9ab',
+    color: '#F5DEB3',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: '#B8860B',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notificationBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   content: {
     flex: 1,
@@ -986,11 +946,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1e293b',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 10,
+    color: '#3e2723',
   },
   btn: {
     paddingHorizontal: 16,
@@ -1001,62 +957,59 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   btnPrimary: {
-    backgroundColor: '#315342',
-  },
-  btnSecondary: {
-    backgroundColor: '#e2e8f0',
+    backgroundColor: '#8B4513',
   },
   btnPrimaryText: {
     color: 'white',
     fontWeight: '600',
   },
-  btnSecondaryText: {
-    color: '#475569',
-    fontWeight: '600',
+  btnDisabled: {
+    opacity: 0.6,
   },
-  statsGrid: {
+  summaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 15,
     marginBottom: 20,
   },
-  statsCard: {
+  summaryCard: {
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 20,
     flex: 1,
     minWidth: '45%',
     borderLeftWidth: 4,
-    shadowColor: '#000',
+    shadowColor: '#8B4513',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
-  statsContent: {
+  summaryContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  statsInfo: {
+  summaryInfo: {
     flex: 1,
   },
-  statsTitle: {
+  summaryTitle: {
     fontSize: 14,
-    color: '#64748b',
+    color: '#8B7355',
     marginBottom: 8,
+    fontWeight: '500',
   },
-  statsValue: {
+  summaryValue: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 4,
   },
-  statsTrend: {
+  summaryTrend: {
     fontSize: 12,
-    color: '#10b981',
+    color: '#8B7355',
     fontWeight: '600',
   },
-  statsIcon: {
+  summaryIcon: {
     width: 50,
     height: 50,
     borderRadius: 25,
@@ -1067,7 +1020,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 12,
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: '#8B4513',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -1076,104 +1029,235 @@ const styles = StyleSheet.create({
   cardHeader: {
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: '#f0ede6',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#3e2723',
   },
   cardContent: {
     padding: 20,
   },
-  taskList: {
-    gap: 15,
+  viewAllBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#f0ede6',
+    borderRadius: 6,
   },
-  taskItem: {
+  viewAllText: {
+    color: '#8B4513',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  alertCount: {
+    backgroundColor: '#B8860B',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  alertCountText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  
+  // Chart styles
+  chartContainer: {
+    gap: 12,
+  },
+  categoryItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    paddingVertical: 8,
   },
-  taskInfo: {
+  categoryInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
   },
-  taskTitle: {
+  categoryColor: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  categoryName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 4,
+    color: '#3e2723',
+    fontWeight: '500',
     textTransform: 'capitalize',
   },
-  taskDescription: {
-    fontSize: 14,
-    color: '#64748b',
+  categoryStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  badge: {
+  categoryCount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#8B4513',
+    minWidth: 30,
+    textAlign: 'right',
+  },
+  categoryPercent: {
+    fontSize: 14,
+    color: '#8B7355',
+    minWidth: 40,
+    textAlign: 'right',
+  },
+
+  // Reports list styles
+  reportsList: {
+    gap: 16,
+  },
+  reportItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0ede6',
+  },
+  reportIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0ede6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reportInfo: {
+    flex: 1,
+  },
+  reportHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  reportType: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#8B4513',
+  },
+  reportTime: {
+    fontSize: 12,
+    color: '#8B7355',
+  },
+  reportLocation: {
+    fontSize: 14,
+    color: '#3e2723',
+    marginBottom: 2,
+  },
+  reportReporter: {
+    fontSize: 12,
+    color: '#8B7355',
+  },
+  statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  badgeGreen: {
-    backgroundColor: '#dcfce7',
-  },
-  badgeOrange: {
-    backgroundColor: '#fed7aa',
-  },
-  badgeText: {
+  statusText: {
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'capitalize',
   },
-  badgeTextGreen: {
-    color: '#166534',
+
+  // Top noise sources styles
+  sourcesList: {
+    gap: 12,
   },
-  badgeTextOrange: {
-    color: '#ea580c',
-  },
-  noData: {
-    textAlign: 'center',
-    color: '#64748b',
-    fontSize: 14,
-    paddingVertical: 20,
-  },
-  activityList: {
-    gap: 15,
-  },
-  activityItem: {
+  sourceItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    paddingVertical: 8,
   },
-  activityIndicator: {
+  sourceRank: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#f0ede6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sourceRankText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#8B4513',
+  },
+  sourceInfo: {
+    flex: 1,
+  },
+  sourceLocation: {
+    fontSize: 16,
+    color: '#3e2723',
+    marginBottom: 2,
+  },
+  sourceReports: {
+    fontSize: 12,
+    color: '#8B7355',
+  },
+  levelIndicator: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  levelText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+
+  // Alerts styles
+  alertsList: {
+    gap: 16,
+  },
+  alertItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  alertIndicator: {
     width: 8,
     height: 8,
     borderRadius: 4,
+    marginTop: 8,
   },
-  activityIndicatorGreen: {
-    backgroundColor: '#10b981',
-  },
-  activityIndicatorBlue: {
-    backgroundColor: '#3b82f6',
-  },
-  activityIndicatorOrange: {
-    backgroundColor: '#f97316',
-  },
-  activityContent: {
+  alertContent: {
     flex: 1,
   },
-  activityTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: 2,
+  alertHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
-  activityTime: {
+  alertLocation: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#3e2723',
+  },
+  alertSeverity: {
     fontSize: 12,
-    color: '#64748b',
+    fontWeight: 'bold',
   },
+  alertMessage: {
+    fontSize: 14,
+    color: '#8B7355',
+    lineHeight: 20,
+  },
+
+  // Modal styles
   modalContainer: {
     flex: 1,
   },
@@ -1183,7 +1267,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(139, 69, 19, 0.5)',
   },
   drawerContainer: {
     position: 'absolute',
@@ -1192,48 +1276,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: width * 0.8,
   },
-  btn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginLeft: 8,
-  },
-  btnPrimary: {
-    backgroundColor: '#3182ce',
-  },
-  btnSecondary: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#cbd5e0',
-  },
-  btnPrimaryText: {
-    color: 'white',
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  btnSecondaryText: {
-    color: '#4a5568',
-    fontWeight: '600',
-  },
-  btnDisabled: {
-    opacity: 0.6,
-  },
-  pageHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2d3748',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+
+  noData: {
+    textAlign: 'center',
+    color: '#8B7355',
+    fontSize: 14,
+    paddingVertical: 20,
   },
 });
 
