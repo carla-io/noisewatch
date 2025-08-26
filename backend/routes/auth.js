@@ -170,23 +170,81 @@ router.post('/register', upload.single('profilePhoto'), async (req, res) => {
 
 router.get('/verify-email', async (req, res) => {
     try {
-        const { token } = req.query;
-        if (!token) return res.status(400).json({ message: 'Invalid token' });
-
+        const token = req.query.token;
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         const user = await User.findOne({ email: decoded.email });
-        if (!user) return res.status(400).json({ message: 'User not found' });
-        if (user.isVerified) return res.status(400).json({ message: 'Already verified' });
+        if (!user) {
+            return res.status(400).send(`
+                <html>
+                  <head>
+                    <title>Email Verification</title>
+                    <style>
+                      body { font-family: Arial, sans-serif; text-align:center; background:#f9fafb; color:#333; }
+                      .container { margin: 100px auto; max-width: 500px; padding: 40px; background:#fff; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+                      h1 { color: #16a34a; }
+                      a { display:inline-block; margin-top:20px; padding:10px 20px; background:#16a34a; color:#fff; text-decoration:none; border-radius:8px; }
+                      a:hover { background:#15803d; }
+                    </style>
+                  </head>
+                  <body>
+                    <div class="container">
+                      <h1>Invalid or expired link</h1>
+                      <p>Please register again or request a new verification email.</p>
+                    </div>
+                  </body>
+                </html>
+            `);
+        }
+
+        // If already verified
+        if (user.isVerified) {
+            return res.status(200).send(`
+                <html>
+                  <head>...same styles...</head>
+                  <body>
+                    <div class="container">
+                      <h1>Your email is already verified</h1>
+                      <p>You can now log in to your account.</p>
+                    </div>
+                  </body>
+                </html>
+            `);
+        }
 
         user.isVerified = true;
         await user.save();
 
-        res.status(200).json({ message: 'Email verified successfully!' });
-    } catch (error) {
-        res.status(400).json({ message: 'Invalid or expired token' });
+        // Success page
+        res.status(200).send(`
+            <html>
+              <head>
+                <title>Email Verified</title>
+                <style>
+                  body { font-family: Arial, sans-serif; text-align:center; background:#f9fafb; color:#333; }
+                  .container { margin: 100px auto; max-width: 500px; padding: 40px; background:#fff; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+                  h1 { color: #16a34a; }
+                  p { font-size: 18px; }
+                  a { display:inline-block; margin-top:20px; padding:10px 20px; background:#16a34a; color:#fff; text-decoration:none; border-radius:8px; }
+                  a:hover { background:#15803d; }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <h1>Email Verified Successfully!</h1>
+                  <p>Hi ${user.username}, your email has been verified. You can now log in to your account.</p>
+                  
+                </div>
+              </body>
+            </html>
+        `);
+
+    } catch (err) {
+        console.error(err);
+        res.status(400).send('<h2>Invalid or expired verification link.</h2>');
     }
 });
+
 
 
 router.post('/login', async (req, res) => {

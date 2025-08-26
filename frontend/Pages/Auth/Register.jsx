@@ -78,8 +78,8 @@ const InputField = React.memo(({
 });
 
 const Register = ({ navigation }) => {
-  // User Information
-  const [name, setName] = useState('');
+  // User Information - Changed from 'name' to 'username'
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -124,13 +124,13 @@ const Register = ({ navigation }) => {
       return false;
     }
 
-    if (!name.trim()) {
-      showToast('error', 'Name Required', 'Please enter your full name');
+    if (!username.trim()) {
+      showToast('error', 'Username Required', 'Please enter your username');
       return false;
     }
 
-    if (name.trim().length < 2) {
-      showToast('error', 'Invalid Name', 'Name must be at least 2 characters long');
+    if (username.trim().length < 2) {
+      showToast('error', 'Invalid Username', 'Username must be at least 2 characters long');
       return false;
     }
 
@@ -175,7 +175,8 @@ const Register = ({ navigation }) => {
     try {
       const formData = new FormData();
       
-      formData.append('name', name.trim());
+      // Changed from 'name' to 'username' to match backend expectations
+      formData.append('username', username.trim());
       formData.append('email', email.trim().toLowerCase());
       formData.append('password', password.trim());
       formData.append('userType', 'user'); // Default user type (no vet option)
@@ -197,29 +198,17 @@ const Register = ({ navigation }) => {
 
       const { data } = response;
 
-      if (!data.success) {
-        throw new Error(data.message || 'Registration failed');
-      }
-
-      if (!data.token || !data.user) {
+      if (!data.user) {
         throw new Error('Invalid response format');
       }
 
-      await AsyncStorage.multiSet([
-        ['userToken', data.token],
-        ['userData', JSON.stringify(data.user)],
-        ['isAuthenticated', 'true'],
-        ['userId', data.user.id.toString()],
-        ['userType', data.user.userType || 'user']
-      ]);
-
-      showToast('success', 'Account Created', `Welcome to our community, ${data.user.name || data.user.username || data.user.email}!`);
+      // Show verification email toast
+      showToast('success', 'Check Your Email', data.message || 'Registration successful! Please check your email to verify your account.');
       
-      // All new users go to Home (no vet dashboard)
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Home' }],
-      });
+      // Navigate back to Login screen for user to verify email first
+      setTimeout(() => {
+        navigation.navigate('Login');
+      }, 2000); // Give user time to read the toast
 
     } catch (error) {
       console.error('Registration error:', error);
@@ -305,13 +294,14 @@ const Register = ({ navigation }) => {
                 <Ionicons name="person-outline" size={18} color="#A67C52" /> Personal Information
               </Text>
               
+              {/* Changed from "Full Name" to "Username" */}
               <InputField
-                name="name"
+                name="username"
                 icon="person-outline"
-                placeholder="Full Name"
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="words"
+                placeholder="Username"
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
                 required={true}
               />
               
