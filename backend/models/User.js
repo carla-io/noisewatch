@@ -15,6 +15,7 @@ const UserSchema = new mongoose.Schema({
             return `${process.env.CLOUDINARY_BASE_URL}/default_profile.png`;
         }
     },
+     isVerified: { type: Boolean, default: false }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

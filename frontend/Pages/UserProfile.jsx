@@ -19,6 +19,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import { showToast } from '../utils/toast';
 import API_BASE_URL from '../utils/api';
 
@@ -47,19 +48,14 @@ const UserProfile = ({ navigation }) => {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/user/profile`, {
-        method: 'GET',
+      const response = await axios.get(`${API_BASE_URL}/user/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch profile');
-      }
-
-      const data = await response.json();
+      const data = response.data;
       if (!data.success) {
         throw new Error(data.message || 'Profile fetch failed');
       }
@@ -72,9 +68,23 @@ const UserProfile = ({ navigation }) => {
       
     } catch (error) {
       console.error('Profile fetch error:', error);
-      showToast('error', 'Profile Error', error.message || 'Failed to load profile');
       
-      if (error.message.includes('authentication') || error.message.includes('token')) {
+      let errorMessage = 'Failed to load profile';
+      if (error.response) {
+        // Server responded with error status
+        errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
+      } else if (error.request) {
+        // Request was made but no response received
+        errorMessage = 'Network error - please check your connection';
+      } else {
+        // Something else happened
+        errorMessage = error.message || 'Failed to load profile';
+      }
+      
+      showToast('error', 'Profile Error', errorMessage);
+      
+      // Check for authentication errors
+      if (error.response?.status === 401 || errorMessage.includes('authentication') || errorMessage.includes('token')) {
         navigation.replace('Login');
       }
     } finally {
@@ -93,23 +103,21 @@ const UserProfile = ({ navigation }) => {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/user/profile`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const response = await axios.put(
+        `${API_BASE_URL}/user/profile`,
+        {
           name: editFormData.name.trim(),
           email: editFormData.email.trim(),
-        }),
-      });
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-      if (!response.ok) {
-        throw new Error('Failed to update profile');
-      }
-
-      const data = await response.json();
+      const data = response.data;
       if (!data.success) {
         throw new Error(data.message || 'Profile update failed');
       }
@@ -120,7 +128,20 @@ const UserProfile = ({ navigation }) => {
       
     } catch (error) {
       console.error('Profile update error:', error);
-      showToast('error', 'Update Failed', error.message || 'Failed to update profile');
+      
+      let errorMessage = 'Failed to update profile';
+      if (error.response) {
+        // Server responded with error status
+        errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
+      } else if (error.request) {
+        // Request was made but no response received
+        errorMessage = 'Network error - please check your connection';
+      } else {
+        // Something else happened
+        errorMessage = error.message || 'Failed to update profile';
+      }
+      
+      showToast('error', 'Update Failed', errorMessage);
     } finally {
       setIsUpdating(false);
     }
