@@ -27,7 +27,7 @@ const CustomDrawer = ({ navigation, onClose }) => {
   // Regular user menu items for noise monitoring
   const userMenuItems = [
     { id: '1', title: 'Dashboard', icon: 'home-outline', route: 'Home' },
-    { id: '2', title: 'Noise Map', icon: 'map-outline', route: 'NoiseMap' },
+    { id: '2', title: 'Noise Map', icon: 'map-outline', route: 'MapScreen' },
     { id: '3', title: 'Report Noise', icon: 'megaphone-outline', route: 'ReportNoise' },
     { id: '4', title: 'My History', icon: 'time-outline', route: 'MyHistory' },
     { id: '5', title: 'Notifications', icon: 'notifications-outline', route: 'Notifications' },
@@ -94,8 +94,28 @@ const CustomDrawer = ({ navigation, onClose }) => {
   }, []);
 
   const handleNavigation = (route) => {
-    onClose?.();
-    navigation.navigate(route);
+    // Close drawer first
+    if (onClose) {
+      onClose();
+    }
+    
+    // Small delay to ensure drawer closes before navigation
+    setTimeout(() => {
+      try {
+        // Check if the route exists in your navigation stack
+        const validRoutes = ['Home', 'MapScreen', 'UserProfile', 'AdminDashboard', 'UserManagement'];
+        
+        if (validRoutes.includes(route)) {
+          navigation.navigate(route);
+        } else {
+          // For routes that don't exist yet, show a toast
+          showToast('info', 'Coming Soon', `${route} feature is under development`);
+        }
+      } catch (error) {
+        console.error('Navigation error:', error);
+        showToast('error', 'Navigation Error', 'Unable to navigate to the selected screen');
+      }
+    }, 300);
   };
 
   const handleLogout = () => {
