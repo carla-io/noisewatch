@@ -103,7 +103,8 @@ const Home = ({ navigation }) => {
   };
 
   const toggleRecording = () => {
-    setIsRecording(!isRecording);
+    const route = 'Record';
+  navigation.navigate(route);
   };
 
   const openDrawer = () => {
