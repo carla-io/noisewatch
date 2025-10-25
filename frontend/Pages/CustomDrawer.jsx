@@ -14,6 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import { showToast } from '../utils/toast';
 import API_BASE_URL from '../utils/api';
 
@@ -28,7 +29,7 @@ const CustomDrawer = ({ navigation, onClose }) => {
   const userMenuItems = [
     { id: '1', title: 'Dashboard', icon: 'home-outline', route: 'Home' },
     { id: '2', title: 'Noise Map', icon: 'map-outline', route: 'MapScreen' },
-    { id: '3', title: 'Report Noise', icon: 'megaphone-outline', route: 'ReportNoise' },
+    { id: '3', title: 'Report Noise', icon: 'megaphone-outline', route: 'Record' },
     { id: '4', title: 'My History', icon: 'time-outline', route: 'MyHistory' },
     { id: '5', title: 'Notifications', icon: 'notifications-outline', route: 'Notifications' },
     { id: '6', title: 'Analytics (Personal)', icon: 'analytics-outline', route: 'PersonalAnalytics' },
@@ -61,29 +62,26 @@ const CustomDrawer = ({ navigation, onClose }) => {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) throw new Error('No authentication token found');
 
-      const response = await fetch(`${API_BASE_URL}/user/profile`, {
-        method: 'GET',
+      const response = await axios.get(`${API_BASE_URL}/user/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch profile');
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Profile fetch failed');
       }
 
-      const data = await response.json();
-      if (!data.success) throw new Error(data.message || 'Profile fetch failed');
-
-      setProfileData(data.user);
+      setProfileData(response.data.user);
       
       // Set user type based on profile data
-      setUserType(data.user.userType || data.user.role || 'user');
+      setUserType(response.data.user.userType || response.data.user.role || 'user');
       
     } catch (error) {
       console.error('Profile fetch error:', error);
-      showToast('error', 'Profile Error', error.message || 'Failed to load profile');
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to load profile';
+      showToast('error', 'Profile Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -103,7 +101,7 @@ const CustomDrawer = ({ navigation, onClose }) => {
     setTimeout(() => {
       try {
         // Check if the route exists in your navigation stack
-        const validRoutes = ['Home', 'MapScreen', 'UserProfile', 'AdminDashboard', 'UserManagement'];
+        const validRoutes = ['Home', 'MapScreen', 'UserProfile', 'AdminDashboard', 'UserManagement', 'Record'];
         
         if (validRoutes.includes(route)) {
           navigation.navigate(route);

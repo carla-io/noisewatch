@@ -12,7 +12,7 @@ import AdminDashboard from './Pages/Admin/AdminDashboard';
 import UserManagement from './Pages/Admin/UserManagement';
 import UserProfile from './Pages/UserProfile';
 import MapScreen from './Pages/User/Map'; // Changed from 'Map' to 'MapScreen' for consistency
-import AudioRecordingScreen from './Pages/User/Record'; // New import for AudioRecording screen
+import AudioRecordingScreen from './Pages/User/Report'; // New import for AudioRecording screen
 
 const Stack = createStackNavigator();
 
