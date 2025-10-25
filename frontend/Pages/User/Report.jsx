@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio, Video } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
+import CustomDrawer from '../CustomDrawer';
 
 const { width, height } = Dimensions.get('window');
 
@@ -815,10 +816,7 @@ Timestamp: ${new Date().toLocaleString()}
             <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeDrawer} />
           </Animated.View>
           <Animated.View style={[styles.drawerContainer, { transform: [{ translateX: slideAnim }] }]}>
-            {/* CustomDrawer component would go here */}
-            <View style={styles.drawerPlaceholder}>
-              <Text style={styles.drawerText}>Drawer Content</Text>
-            </View>
+            <CustomDrawer navigation={navigation} onClose={closeDrawer} />
           </Animated.View>
         </View>
       </Modal>
