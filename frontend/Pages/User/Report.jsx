@@ -1,31 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Modal,
-  Animated,
-  StatusBar,
-  Dimensions,
-  Platform,
-  Easing,
-  ScrollView,
-  Alert,
-  TextInput,
-  KeyboardAvoidingView,
+  View, Text, StyleSheet, TouchableOpacity, Modal, Animated, StatusBar,
+  Dimensions, Platform, Easing, ScrollView, Alert, TextInput, KeyboardAvoidingView, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio, Video } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
+import axios from 'axios';
+import API_BASE_URL from '../../utils/api';
 import CustomDrawer from '../CustomDrawer';
 
 const { width, height } = Dimensions.get('window');
-
-const getStatusBarHeight = () => {
-  return Platform.OS === 'ios' ? (height >= 812 ? 44 : 20) : StatusBar.currentHeight || 24;
-};
+const getStatusBarHeight = () => Platform.OS === 'ios' ? (height >= 812 ? 44 : 20) : StatusBar.currentHeight || 24;
 
 export default function AudioRecordingScreen({ navigation }) {
   const [drawerVisible, setDrawerVisible] = useState(false);
@@ -40,10 +28,12 @@ export default function AudioRecordingScreen({ navigation }) {
   const [audioUri, setAudioUri] = useState(null);
   const [comment, setComment] = useState('');
   const [selectedReason, setSelectedReason] = useState('');
-  
-  // Video states
   const [videoUri, setVideoUri] = useState(null);
   const [attachmentType, setAttachmentType] = useState(null);
+  const [location, setLocation] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(-width * 0.8)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -51,145 +41,59 @@ export default function AudioRecordingScreen({ navigation }) {
   const waveAnim1 = useRef(new Animated.Value(0.5)).current;
   const waveAnim2 = useRef(new Animated.Value(0.8)).current;
   const waveAnim3 = useRef(new Animated.Value(0.3)).current;
-
   const recordingInterval = useRef(null);
   const videoRef = useRef(null);
 
-  // Predefined noise complaint reasons
-  const noiseReasons = [
-    '🔊 Loud Music',
-    '🚗 Vehicle Noise',
-    '🔨 Construction',
-    '🎉 Party/Event',
-    '🐕 Animal Noise',
-    '🏭 Industrial',
-    '🗣️ Shouting/Arguments',
-    '📢 Other',
-  ];
+  const noiseReasons = ['🔊 Loud Music', '🚗 Vehicle Noise', '🔨 Construction', '🎉 Party/Event', '🐕 Animal Noise', '🏭 Industrial', '🗣️ Shouting/Arguments', '📢 Other'];
 
   useEffect(() => {
-    const configureAudio = async () => {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant microphone access for recording.');
-        return;
-      }
-
-      const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
-      if (cameraStatus.status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant camera access for video recording.');
-      }
-
+    (async () => {
+      await Audio.requestPermissionsAsync();
+      await ImagePicker.requestCameraPermissionsAsync();
       await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
+        allowsRecordingIOS: true, playsInSilentModeIOS: true, staysActiveInBackground: false,
+        shouldDuckAndroid: true, playThroughEarpieceAndroid: false,
         interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
         interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
       });
-    };
-    configureAudio();
-
+    })();
     return () => {
-      if (recording) {
-        recording.stopAndUnloadAsync();
-      }
-      if (sound) {
-        sound.unloadAsync();
-      }
+      recording?.stopAndUnloadAsync();
+      sound?.unloadAsync();
     };
   }, []);
 
   useEffect(() => {
     if (isRecording) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.2,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-
-      const animateWaves = () => {
-        Animated.loop(
-          Animated.stagger(200, [
-            Animated.timing(waveAnim1, {
-              toValue: Math.random(),
-              duration: 500,
-              useNativeDriver: false,
-            }),
-            Animated.timing(waveAnim2, {
-              toValue: Math.random(),
-              duration: 500,
-              useNativeDriver: false,
-            }),
-            Animated.timing(waveAnim3, {
-              toValue: Math.random(),
-              duration: 500,
-              useNativeDriver: false,
-            }),
-          ])
-        ).start();
-      };
-      animateWaves();
-    } else {
-      pulseAnim.setValue(1);
-    }
+      Animated.loop(Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.2, duration: 1000, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+      ])).start();
+      Animated.loop(Animated.stagger(200, [
+        Animated.timing(waveAnim1, { toValue: Math.random(), duration: 500, useNativeDriver: false }),
+        Animated.timing(waveAnim2, { toValue: Math.random(), duration: 500, useNativeDriver: false }),
+        Animated.timing(waveAnim3, { toValue: Math.random(), duration: 500, useNativeDriver: false }),
+      ])).start();
+    } else pulseAnim.setValue(1);
   }, [isRecording]);
 
   const startRecording = async () => {
     try {
-      const recordingOptions = {
-        android: {
-          extension: '.m4a',
-          outputFormat: Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_MPEG_4,
-          audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_AAC,
-          sampleRate: 44100,
-          numberOfChannels: 2,
-          bitRate: 320000,
-        },
-        ios: {
-          extension: '.m4a',
-          outputFormat: Audio.RECORDING_OPTION_IOS_OUTPUT_FORMAT_MPEG4AAC,
-          audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_MAX,
-          sampleRate: 44100,
-          numberOfChannels: 2,
-          bitRate: 320000,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
-        },
-        web: {
-          mimeType: 'audio/webm;codecs=opus',
-          bitsPerSecond: 320000,
-        },
-      };
-
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        recordingOptions
-      );
+      const { recording: newRecording } = await Audio.Recording.createAsync({
+        android: { extension: '.m4a', outputFormat: Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_MPEG_4, audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_AAC, sampleRate: 44100, numberOfChannels: 2, bitRate: 320000 },
+        ios: { extension: '.m4a', outputFormat: Audio.RECORDING_OPTION_IOS_OUTPUT_FORMAT_MPEG4AAC, audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_MAX, sampleRate: 44100, numberOfChannels: 2, bitRate: 320000, linearPCMBitDepth: 16, linearPCMIsBigEndian: false, linearPCMIsFloat: false },
+        web: { mimeType: 'audio/webm;codecs=opus', bitsPerSecond: 320000 },
+      });
       setRecording(newRecording);
       setIsRecording(true);
       setRecordingDuration(0);
       setAttachmentType('audio');
-
       recordingInterval.current = setInterval(() => {
-        setRecordingDuration(prev => prev + 1);
-        setCurrentDb(Math.floor(Math.random() * (85 - 40) + 40));
+        setRecordingDuration(p => p + 1);
+        setCurrentDb(Math.floor(Math.random() * 45 + 40));
       }, 1000);
-
     } catch (err) {
-      console.error('Failed to start recording', err);
-      Alert.alert('Error', 'Failed to start recording. Please check microphone permissions.');
+      Alert.alert('Error', 'Failed to start recording.');
     }
   };
 
@@ -200,116 +104,74 @@ export default function AudioRecordingScreen({ navigation }) {
       setAudioUri(uri);
       setIsRecording(false);
       setRecording(null);
-      
-      if (recordingInterval.current) {
-        clearInterval(recordingInterval.current);
-      }
-
+      clearInterval(recordingInterval.current);
       const { sound: newSound } = await Audio.Sound.createAsync({ uri });
       const status = await newSound.getStatusAsync();
       setTotalDuration(Math.floor(status.durationMillis / 1000));
       setSound(newSound);
-
     } catch (err) {
-      console.error('Failed to stop recording', err);
+      console.error(err);
     }
   };
 
-  const pickVideo = async () => {
-    try {
-      Alert.alert(
-        'Add Video',
-        'Choose an option',
-        [
-          {
-            text: 'Record Video',
-            onPress: recordVideo,
-          },
-          {
-            text: 'Choose from Gallery',
-            onPress: pickFromGallery,
-          },
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-        ]
-      );
-    } catch (err) {
-      console.error('Error picking video:', err);
-    }
-  };
-
-  const recordVideo = async () => {
-    try {
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-        allowsEditing: true,
-        aspect: [16, 9],
-        quality: 1,
-        videoMaxDuration: 60,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setVideoUri(result.assets[0].uri);
-        setAttachmentType('video');
-        if (sound) {
-          sound.unloadAsync();
+  const pickVideo = () => {
+    Alert.alert('Add Video', 'Choose an option', [
+      { text: 'Record Video', onPress: async () => {
+        const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Videos, allowsEditing: true, aspect: [16, 9], quality: 1, videoMaxDuration: 60 });
+        if (!result.canceled && result.assets[0]) {
+          setVideoUri(result.assets[0].uri);
+          setAttachmentType('video');
+          sound?.unloadAsync();
+          setAudioUri(null);
+          setSound(null);
         }
-        setAudioUri(null);
-        setSound(null);
-      }
-    } catch (err) {
-      console.error('Error recording video:', err);
-      Alert.alert('Error', 'Failed to record video. Please try again.');
-    }
-  };
-
-  const pickFromGallery = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-        allowsEditing: true,
-        aspect: [16, 9],
-        quality: 1,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setVideoUri(result.assets[0].uri);
-        setAttachmentType('video');
-        if (sound) {
-          sound.unloadAsync();
+      }},
+      { text: 'Choose from Gallery', onPress: async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Videos, allowsEditing: true, aspect: [16, 9], quality: 1 });
+        if (!result.canceled && result.assets[0]) {
+          setVideoUri(result.assets[0].uri);
+          setAttachmentType('video');
+          sound?.unloadAsync();
+          setAudioUri(null);
+          setSound(null);
         }
-        setAudioUri(null);
-        setSound(null);
-      }
-    } catch (err) {
-      console.error('Error picking video:', err);
-      Alert.alert('Error', 'Failed to pick video. Please try again.');
-    }
+      }},
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const deleteVideo = () => {
-    Alert.alert(
-      'Delete Video',
-      'Are you sure you want to remove this video?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            setVideoUri(null);
-            setAttachmentType(null);
-          },
-        },
-      ]
-    );
+    Alert.alert('Delete Video', 'Remove this video?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => { setVideoUri(null); setAttachmentType(null); }},
+    ]);
+  };
+
+  const getUserLocation = async () => {
+    setLocationLoading(true);
+    setLocationError(null);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError('Location permission denied');
+        Alert.alert('Permission Required', 'Please grant location access.');
+        setLocationLoading(false);
+        return;
+      }
+      const currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const address = await Location.reverseGeocodeAsync({ latitude: currentLocation.coords.latitude, longitude: currentLocation.coords.longitude });
+      setLocation({ latitude: currentLocation.coords.latitude, longitude: currentLocation.coords.longitude, address: address[0] || null, timestamp: new Date().toISOString() });
+      setLocationLoading(false);
+      Alert.alert('✅ Location Added', `${address[0]?.street || ''} ${address[0]?.city || ''}\n${currentLocation.coords.latitude.toFixed(6)}, ${currentLocation.coords.longitude.toFixed(6)}`);
+    } catch (error) {
+      setLocationError('Failed to get location');
+      setLocationLoading(false);
+      Alert.alert('Error', 'Failed to get location.');
+    }
   };
 
   const playPauseRecording = async () => {
     if (!sound) return;
-
     try {
       if (isPlaying) {
         await sound.pauseAsync();
@@ -319,905 +181,395 @@ export default function AudioRecordingScreen({ navigation }) {
           await sound.setPositionAsync(0);
           setPlaybackPosition(0);
         }
-        
         await sound.playAsync();
         setIsPlaying(true);
-        
         sound.setOnPlaybackStatusUpdate((status) => {
           if (status.isLoaded) {
             setPlaybackPosition(Math.floor(status.positionMillis / 1000));
-            if (status.didJustFinish) {
-              setIsPlaying(false);
-              setPlaybackPosition(0);
-            }
+            if (status.didJustFinish) { setIsPlaying(false); setPlaybackPosition(0); }
           }
         });
       }
     } catch (err) {
-      console.error('Failed to play/pause recording', err);
+      console.error(err);
     }
   };
 
   const restartRecording = async () => {
     if (!sound) return;
-
     try {
       await sound.setPositionAsync(0);
       setPlaybackPosition(0);
       await sound.playAsync();
       setIsPlaying(true);
-      
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded) {
           setPlaybackPosition(Math.floor(status.positionMillis / 1000));
-          if (status.didJustFinish) {
-            setIsPlaying(false);
-            setPlaybackPosition(0);
-          }
+          if (status.didJustFinish) { setIsPlaying(false); setPlaybackPosition(0); }
         }
       });
     } catch (err) {
-      console.error('Failed to restart recording', err);
+      console.error(err);
     }
   };
 
   const deleteRecording = () => {
-    Alert.alert(
-      'Delete Recording',
-      'Are you sure you want to delete this recording?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            if (sound) {
-              sound.unloadAsync();
-            }
-            setSound(null);
-            setAudioUri(null);
-            setTotalDuration(0);
-            setPlaybackPosition(0);
-            setIsPlaying(false);
-            setAttachmentType(null);
-          },
-        },
-      ]
-    );
+    Alert.alert('Delete Recording', 'Delete this recording?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => {
+        sound?.unloadAsync();
+        setSound(null);
+        setAudioUri(null);
+        setTotalDuration(0);
+        setPlaybackPosition(0);
+        setIsPlaying(false);
+        setAttachmentType(null);
+      }},
+    ]);
   };
 
-  const saveRecording = () => {
+  const saveRecording = async () => {
     if (!audioUri && !videoUri) {
       Alert.alert('No Content', 'Please record audio or attach a video first.');
       return;
     }
-
     if (!selectedReason) {
       Alert.alert('Reason Required', 'Please select a reason for this noise report.');
       return;
     }
 
-    const attachmentInfo = videoUri 
-      ? `Video: ${videoUri.split('/').pop()}`
-      : `Audio: ${formatTime(totalDuration)}`;
+    setIsSubmitting(true);
 
-    const reportDetails = `
-Noise Report Submitted Successfully!
+    try {
+      // ✅ Prepare form data for multipart/form-data upload
+      const formData = new FormData();
+      
+      // Add media file (audio or video)
+      const mediaUri = videoUri || audioUri;
+      const mediaType = videoUri ? 'video' : 'audio';
+      const fileExtension = mediaUri.split('.').pop();
+      const fileName = `noise_report_${Date.now()}.${fileExtension}`;
+      
+      formData.append('media', {
+        uri: mediaUri,
+        type: videoUri ? `video/${fileExtension}` : `audio/${fileExtension}`,
+        name: fileName,
+      });
 
-Reason: ${selectedReason}
-${comment ? `\nAdditional Details: ${comment}` : ''}
-${attachmentInfo}
-Timestamp: ${new Date().toLocaleString()}
-    `.trim();
+      // Add other fields
+      formData.append('reason', selectedReason);
+      formData.append('mediaType', mediaType);
+      
+      if (comment) {
+        formData.append('comment', comment);
+      }
+      
+      if (location) {
+        formData.append('location', JSON.stringify({
+          latitude: location.latitude,
+          longitude: location.longitude,
+          address: location.address,
+          timestamp: location.timestamp,
+        }));
+      }
 
-    Alert.alert(
-      '✅ Report Submitted',
-      reportDetails,
-      [
+      // ✅ Send POST request to backend
+      const response = await axios.post(`${API_BASE_URL}/reports/new-report`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 60000, // 60 seconds timeout for large files
+      });
+
+      setIsSubmitting(false);
+
+      // ✅ Success - Show confirmation
+      const attachmentInfo = videoUri 
+        ? `Video: ${videoUri.split('/').pop()}`
+        : `Audio: ${formatTime(totalDuration)}`;
+
+      const locationInfo = location 
+        ? `\nLocation: ${location.address?.street || ''} ${location.address?.city || ''}\nCoordinates: ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
+        : '\nLocation: Not provided';
+
+      const reportDetails = `Noise Report Submitted Successfully!\n\nReason: ${selectedReason}${comment ? `\nDetails: ${comment}` : ''}\n${attachmentInfo}${locationInfo}\nTimestamp: ${new Date().toLocaleString()}`;
+
+      Alert.alert('✅ Report Submitted', reportDetails, [
         { 
           text: 'OK', 
           onPress: () => {
             // Reset form after successful submission
             setComment('');
             setSelectedReason('');
-            if (sound) {
-              sound.unloadAsync();
-            }
+            sound?.unloadAsync();
             setSound(null);
             setAudioUri(null);
             setVideoUri(null);
             setAttachmentType(null);
+            setLocation(null);
+            setLocationError(null);
             setTotalDuration(0);
             setPlaybackPosition(0);
           }
         }
-      ]
-    );
+      ]);
+
+    } catch (error) {
+      setIsSubmitting(false);
+      console.error('Error submitting report:', error);
+      
+      let errorMessage = 'Failed to submit noise report. Please try again.';
+      
+      if (error.response) {
+        // Server responded with error
+        errorMessage = error.response.data?.message || errorMessage;
+      } else if (error.request) {
+        // Request made but no response
+        errorMessage = 'Network error. Please check your internet connection.';
+      }
+      
+      Alert.alert('❌ Submission Failed', errorMessage, [{ text: 'OK' }]);
+    }
   };
 
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const getDbColor = (db) => {
-    if (db < 50) return '#8B7355';
-    if (db < 70) return '#D4AC0D';
-    if (db < 85) return '#E67E22';
-    return '#E74C3C';
-  };
+  const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+  const getDbColor = (db) => db < 50 ? '#8B7355' : db < 70 ? '#D4AC0D' : db < 85 ? '#E67E22' : '#E74C3C';
 
   const openDrawer = () => {
     setDrawerVisible(true);
     Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 350,
-        easing: Easing.bezier(0.25, 0.46, 0.45, 0.94),
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 1,
-        duration: 350,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 350, easing: Easing.bezier(0.25, 0.46, 0.45, 0.94), useNativeDriver: true }),
+      Animated.timing(overlayOpacity, { toValue: 1, duration: 350, easing: Easing.out(Easing.quad), useNativeDriver: true }),
     ]).start();
   };
 
   const closeDrawer = () => {
     Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: -width * 0.8,
-        duration: 300,
-        easing: Easing.bezier(0.55, 0.06, 0.68, 0.19),
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 0,
-        duration: 250,
-        easing: Easing.in(Easing.quad),
-        useNativeDriver: true,
-      }),
+      Animated.timing(slideAnim, { toValue: -width * 0.8, duration: 300, easing: Easing.bezier(0.55, 0.06, 0.68, 0.19), useNativeDriver: true }),
+      Animated.timing(overlayOpacity, { toValue: 0, duration: 250, easing: Easing.in(Easing.quad), useNativeDriver: true }),
     ]).start(() => setDrawerVisible(false));
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-    >
+    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar barStyle="light-content" backgroundColor="#8B4513" />
-      
-      <LinearGradient colors={['#8B4513', '#654321']} style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.headerTop}>
-            <TouchableOpacity onPress={openDrawer} style={styles.headerButton}>
-              <Ionicons name="menu" size={28} color="#D4AC0D" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
-              <Ionicons name="arrow-back" size={28} color="#D4AC0D" />
-            </TouchableOpacity>
+      <LinearGradient colors={['#8B4513', '#654321']} style={s.header}>
+        <View style={s.headerContent}>
+          <View style={s.headerTop}>
+            <TouchableOpacity onPress={openDrawer} style={s.headerButton}><Ionicons name="menu" size={28} color="#D4AC0D" /></TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerButton}><Ionicons name="arrow-back" size={28} color="#D4AC0D" /></TouchableOpacity>
           </View>
-          <Text style={styles.headerTitle}>🎙️ Noise Report</Text>
-          <Text style={styles.headerSubtitle}>
-            {isRecording ? 'Recording in progress...' : 
-             videoUri ? 'Video attached' :
-             audioUri ? 'Recording complete' : 
-             'Record audio or attach video'}
-          </Text>
+          <Text style={s.headerTitle}>🎙️ Noise Report</Text>
+          <Text style={s.headerSubtitle}>{isRecording ? 'Recording...' : videoUri ? 'Video attached' : audioUri ? 'Recording complete' : 'Record audio or attach video'}</Text>
         </View>
       </LinearGradient>
 
-      <ScrollView 
-        style={styles.scrollView} 
-        contentContainerStyle={{ paddingBottom: 100 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Reason Selection Section */}
-        <View style={styles.reasonSection}>
-          <Text style={styles.sectionTitle}>📋 Select Noise Type</Text>
-          <Text style={styles.sectionSubtitle}>Choose the type of noise disturbance</Text>
-          <View style={styles.reasonGrid}>
-            {noiseReasons.map((reason, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.reasonChip,
-                  selectedReason === reason && styles.reasonChipSelected
-                ]}
-                onPress={() => setSelectedReason(reason)}
-              >
-                <Text style={[
-                  styles.reasonChipText,
-                  selectedReason === reason && styles.reasonChipTextSelected
-                ]}>
-                  {reason}
-                </Text>
+      <ScrollView style={s.scrollView} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>📋 Select Noise Type</Text>
+          <Text style={s.sectionSubtitle}>Choose the type of noise disturbance</Text>
+          <View style={s.reasonGrid}>
+            {noiseReasons.map((r, i) => (
+              <TouchableOpacity key={i} style={[s.chip, selectedReason === r && s.chipSelected]} onPress={() => setSelectedReason(r)}>
+                <Text style={[s.chipText, selectedReason === r && s.chipTextSelected]}>{r}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* Comment Section */}
-        <View style={styles.commentSection}>
-          <Text style={styles.sectionTitle}>💬 Additional Details</Text>
-          <Text style={styles.sectionSubtitle}>Describe the noise issue (optional)</Text>
-          <View style={styles.commentInputContainer}>
-            <TextInput
-              style={styles.commentInput}
-              placeholder="e.g., Loud music from neighbor's apartment, ongoing for 2 hours..."
-              placeholderTextColor="#999"
-              multiline
-              numberOfLines={4}
-              value={comment}
-              onChangeText={setComment}
-              maxLength={500}
-              textAlignVertical="top"
-            />
-            <Text style={styles.characterCount}>{comment.length}/500</Text>
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>💬 Additional Details</Text>
+          <Text style={s.sectionSubtitle}>Describe the noise issue (optional)</Text>
+          <View>
+            <TextInput style={s.input} placeholder="e.g., Loud music from neighbor's apartment..." placeholderTextColor="#999" multiline numberOfLines={4} value={comment} onChangeText={setComment} maxLength={500} textAlignVertical="top" />
+            <Text style={s.charCount}>{comment.length}/500</Text>
           </View>
         </View>
 
-        {/* Attachment Type Selector */}
-        <View style={styles.attachmentSelector}>
-          <TouchableOpacity 
-            style={[
-              styles.attachmentButton, 
-              attachmentType === 'audio' && styles.attachmentButtonActive
-            ]}
-            onPress={() => {
-              if (attachmentType === 'video') {
-                Alert.alert('Switch to Audio', 'This will remove the attached video. Continue?', [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'OK', onPress: () => {
-                    setVideoUri(null);
-                    setAttachmentType('audio');
-                  }}
-                ]);
-              }
-            }}
-          >
-            <Ionicons 
-              name="mic" 
-              size={24} 
-              color={attachmentType === 'audio' ? '#fff' : '#8B4513'} 
-            />
-            <Text style={[
-              styles.attachmentButtonText,
-              attachmentType === 'audio' && styles.attachmentButtonTextActive
-            ]}>
-              Audio Recording
-            </Text>
-          </TouchableOpacity>
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>📍 Location</Text>
+          <Text style={s.sectionSubtitle}>Add your current location</Text>
+          {!location ? (
+            <TouchableOpacity style={s.locationBtn} onPress={getUserLocation} disabled={locationLoading}>
+              <Ionicons name={locationLoading ? "hourglass" : "location"} size={24} color="#fff" />
+              <Text style={s.locationBtnText}>{locationLoading ? 'Getting...' : 'Add Current Location'}</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={s.locationDisplay}>
+              <View style={s.locationInfo}>
+                <Ionicons name="location-sharp" size={20} color="#8B4513" />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.locationAddress}>{location.address?.street || 'Unknown'}, {location.address?.city || 'Unknown'}</Text>
+                  <Text style={s.locationCoords}>{location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}</Text>
+                </View>
+              </View>
+              <View style={s.locationActions}>
+                <TouchableOpacity style={s.refreshBtn} onPress={getUserLocation}><Ionicons name="refresh" size={20} color="#8B4513" /></TouchableOpacity>
+                <TouchableOpacity style={s.removeBtn} onPress={() => setLocation(null)}><Ionicons name="close-circle" size={20} color="#E74C3C" /></TouchableOpacity>
+              </View>
+            </View>
+          )}
+          {locationError && <Text style={s.error}>{locationError}</Text>}
+        </View>
 
-          <TouchableOpacity 
-            style={[
-              styles.attachmentButton, 
-              attachmentType === 'video' && styles.attachmentButtonActive
-            ]}
-            onPress={pickVideo}
-          >
-            <Ionicons 
-              name="videocam" 
-              size={24} 
-              color={attachmentType === 'video' ? '#fff' : '#8B4513'} 
-            />
-            <Text style={[
-              styles.attachmentButtonText,
-              attachmentType === 'video' && styles.attachmentButtonTextActive
-            ]}>
-              Video Attachment
-            </Text>
+        <View style={s.attachmentSelector}>
+          <TouchableOpacity style={[s.attachBtn, attachmentType === 'audio' && s.attachBtnActive]} onPress={() => {
+            if (attachmentType === 'video') Alert.alert('Switch to Audio', 'Remove video?', [{ text: 'Cancel', style: 'cancel' }, { text: 'OK', onPress: () => { setVideoUri(null); setAttachmentType('audio'); }}]);
+          }}>
+            <Ionicons name="mic" size={24} color={attachmentType === 'audio' ? '#fff' : '#8B4513'} />
+            <Text style={[s.attachBtnText, attachmentType === 'audio' && s.attachBtnTextActive]}>Audio</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.attachBtn, attachmentType === 'video' && s.attachBtnActive]} onPress={pickVideo}>
+            <Ionicons name="videocam" size={24} color={attachmentType === 'video' ? '#fff' : '#8B4513'} />
+            <Text style={[s.attachBtnText, attachmentType === 'video' && s.attachBtnTextActive]}>Video</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Video Preview Section */}
         {videoUri && (
-          <View style={styles.videoSection}>
-            <Text style={styles.sectionTitle}>📹 Video Preview</Text>
-            <View style={styles.videoContainer}>
-              <Video
-                ref={videoRef}
-                source={{ uri: videoUri }}
-                style={styles.video}
-                useNativeControls
-                resizeMode="contain"
-                isLooping
-              />
-              <TouchableOpacity 
-                style={styles.deleteVideoButton}
-                onPress={deleteVideo}
-              >
-                <Ionicons name="close-circle" size={32} color="#E74C3C" />
-              </TouchableOpacity>
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>📹 Video Preview</Text>
+            <View style={s.videoContainer}>
+              <Video ref={videoRef} source={{ uri: videoUri }} style={s.video} useNativeControls resizeMode="contain" isLooping />
+              <TouchableOpacity style={s.deleteVideoBtn} onPress={deleteVideo}><Ionicons name="close-circle" size={32} color="#E74C3C" /></TouchableOpacity>
             </View>
-            <Text style={styles.videoInfo}>
-              Video file: {videoUri.split('/').pop()}
-            </Text>
+            <Text style={s.videoInfo}>Video: {videoUri.split('/').pop()}</Text>
           </View>
         )}
 
-        {/* Recording Section - Only show if no video */}
         {!videoUri && (
-          <View style={styles.recordingSection}>
-            <View style={styles.recordingContainer}>
+          <View style={s.section}>
+            <View style={s.recordingContainer}>
               {isRecording && (
-                <View style={styles.waveformContainer}>
-                  <Text style={[styles.dbReading, { color: getDbColor(currentDb) }]}>
-                    {currentDb} dB
-                  </Text>
-                  <View style={styles.waveform}>
-                    <Animated.View 
-                      style={[
-                        styles.waveBar, 
-                        { 
-                          height: waveAnim1.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [10, 60]
-                          }),
-                          backgroundColor: getDbColor(currentDb)
-                        }
-                      ]} 
-                    />
-                    <Animated.View 
-                      style={[
-                        styles.waveBar, 
-                        { 
-                          height: waveAnim2.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [10, 80]
-                          }),
-                          backgroundColor: getDbColor(currentDb)
-                        }
-                      ]} 
-                    />
-                    <Animated.View 
-                      style={[
-                        styles.waveBar, 
-                        { 
-                          height: waveAnim3.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [10, 50]
-                          }),
-                          backgroundColor: getDbColor(currentDb)
-                        }
-                      ]} 
-                    />
-                    <Animated.View 
-                      style={[
-                        styles.waveBar, 
-                        { 
-                          height: waveAnim1.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [20, 70]
-                          }),
-                          backgroundColor: getDbColor(currentDb)
-                        }
-                      ]} 
-                    />
-                    <Animated.View 
-                      style={[
-                        styles.waveBar, 
-                        { 
-                          height: waveAnim2.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [10, 40]
-                          }),
-                          backgroundColor: getDbColor(currentDb)
-                        }
-                      ]} 
-                    />
+                <View style={s.waveformContainer}>
+                  <Text style={[s.dbReading, { color: getDbColor(currentDb) }]}>{currentDb} dB</Text>
+                  <View style={s.waveform}>
+                    {[waveAnim1, waveAnim2, waveAnim3, waveAnim1, waveAnim2].map((anim, i) => (
+                      <Animated.View key={i} style={[s.waveBar, { height: anim.interpolate({ inputRange: [0, 1], outputRange: [10, [60, 80, 50, 70, 40][i]] }), backgroundColor: getDbColor(currentDb) }]} />
+                    ))}
                   </View>
                 </View>
               )}
-
-              <View style={styles.timerContainer}>
-                <Text style={styles.timerText}>
-                  {formatTime(isRecording ? recordingDuration : totalDuration)}
-                </Text>
-                {isRecording && (
-                  <View style={styles.recordingDot}>
-                    <View style={styles.pulsingDot} />
-                  </View>
-                )}
+              <View style={s.timerContainer}>
+                <Text style={s.timerText}>{formatTime(isRecording ? recordingDuration : totalDuration)}</Text>
+                {isRecording && <View style={s.recordingDot}><View style={s.pulsingDot} /></View>}
               </View>
-
-              <TouchableOpacity 
-                onPress={isRecording ? stopRecording : startRecording}
-                style={styles.recordButtonContainer}
-              >
-                <Animated.View 
-                  style={[
-                    styles.recordButton, 
-                    { 
-                      backgroundColor: isRecording ? '#E74C3C' : '#D4AC0D',
-                      transform: [{ scale: isRecording ? pulseAnim : 1 }]
-                    }
-                  ]}
-                >
-                  <Ionicons 
-                    name={isRecording ? "stop" : "mic"} 
-                    size={50} 
-                    color="#fff" 
-                  />
+              <TouchableOpacity onPress={isRecording ? stopRecording : startRecording}>
+                <Animated.View style={[s.recordButton, { backgroundColor: isRecording ? '#E74C3C' : '#D4AC0D', transform: [{ scale: isRecording ? pulseAnim : 1 }] }]}>
+                  <Ionicons name={isRecording ? "stop" : "mic"} size={50} color="#fff" />
                 </Animated.View>
               </TouchableOpacity>
-
-              <Text style={styles.recordStatus}>
-                {isRecording ? 'Recording... Tap to stop' : audioUri ? 'Recording complete' : 'Tap to start recording'}
-              </Text>
+              <Text style={s.recordStatus}>{isRecording ? 'Recording... Tap to stop' : audioUri ? 'Recording complete' : 'Tap to start'}</Text>
             </View>
           </View>
         )}
 
-        {/* Playback Section */}
         {audioUri && !videoUri && (
-          <View style={styles.playbackSection}>
-            <Text style={styles.sectionTitle}>🔊 Playback</Text>
-            
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View 
-                  style={[
-                    styles.progressFill, 
-                    { width: `${totalDuration > 0 ? (playbackPosition / totalDuration) * 100 : 0}%` }
-                  ]} 
-                />
-              </View>
-              <View style={styles.timeLabels}>
-                <Text style={styles.timeText}>{formatTime(playbackPosition)}</Text>
-                <Text style={styles.timeText}>{formatTime(totalDuration)}</Text>
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>🔊 Playback</Text>
+            <View style={s.progressContainer}>
+              <View style={s.progressBar}><View style={[s.progressFill, { width: `${totalDuration > 0 ? (playbackPosition / totalDuration) * 100 : 0}%` }]} /></View>
+              <View style={s.timeLabels}>
+                <Text style={s.timeText}>{formatTime(playbackPosition)}</Text>
+                <Text style={s.timeText}>{formatTime(totalDuration)}</Text>
               </View>
             </View>
-
-            <View style={styles.playbackControls}>
-              <TouchableOpacity onPress={restartRecording} style={styles.restartButton}>
-                <Ionicons name="play-skip-back" size={25} color="#8B4513" />
-              </TouchableOpacity>
-              
-              <TouchableOpacity onPress={playPauseRecording} style={styles.playButton}>
-                <Ionicons 
-                  name={isPlaying ? "pause" : "play"} 
-                  size={30} 
-                  color="#8B4513" 
-                />
-              </TouchableOpacity>
-              
-              <TouchableOpacity onPress={deleteRecording} style={styles.deleteButton}>
-                <Ionicons name="trash" size={25} color="#E74C3C" />
-              </TouchableOpacity>
+            <View style={s.playbackControls}>
+              <TouchableOpacity onPress={restartRecording} style={s.restartBtn}><Ionicons name="play-skip-back" size={25} color="#8B4513" /></TouchableOpacity>
+              <TouchableOpacity onPress={playPauseRecording} style={s.playBtn}><Ionicons name={isPlaying ? "pause" : "play"} size={30} color="#8B4513" /></TouchableOpacity>
+              <TouchableOpacity onPress={deleteRecording} style={s.deleteBtn}><Ionicons name="trash" size={25} color="#E74C3C" /></TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* Save Button */}
         {(audioUri || videoUri) && (
-          <TouchableOpacity 
-            onPress={saveRecording} 
-            style={[
-              styles.saveReportButton,
-              !selectedReason && styles.saveReportButtonDisabled
-            ]}
-            disabled={!selectedReason}
-          >
-            <Ionicons name="checkmark-circle" size={28} color="#fff" />
-            <Text style={styles.saveReportText}>Submit Noise Report</Text>
+          <TouchableOpacity onPress={saveRecording} style={[s.saveBtn, (!selectedReason || isSubmitting) && s.saveBtnDisabled]} disabled={!selectedReason || isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <ActivityIndicator size="small" color="#fff" />
+                <Text style={s.saveBtnText}>Submitting...</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={28} color="#fff" />
+                <Text style={s.saveBtnText}>Submit Noise Report</Text>
+              </>
+            )}
           </TouchableOpacity>
         )}
       </ScrollView>
 
-      {/* Drawer Modal */}
       <Modal visible={drawerVisible} transparent animationType="none" onRequestClose={closeDrawer}>
-        <View style={styles.modalContainer}>
-          <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
-            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeDrawer} />
-          </Animated.View>
-          <Animated.View style={[styles.drawerContainer, { transform: [{ translateX: slideAnim }] }]}>
-            <CustomDrawer navigation={navigation} onClose={closeDrawer} />
-          </Animated.View>
+        <View style={s.modalContainer}>
+          <Animated.View style={[s.overlay, { opacity: overlayOpacity }]}><TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeDrawer} /></Animated.View>
+          <Animated.View style={[s.drawerContainer, { transform: [{ translateX: slideAnim }] }]}><CustomDrawer navigation={navigation} onClose={closeDrawer} /></Animated.View>
         </View>
       </Modal>
     </KeyboardAvoidingView>
   );
-};
+}
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5E6D3',
-  },
-  header: {
-    paddingTop: getStatusBarHeight() + 10,
-    paddingBottom: 25,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-  },
-  headerContent: {
-    alignItems: 'center',
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 15,
-  },
-  headerButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(212, 172, 13, 0.2)',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#D4AC0D',
-    textAlign: 'center',
-    marginBottom: 5,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#F5E6D3',
-    textAlign: 'center',
-    opacity: 0.9,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  reasonSection: {
-    margin: 20,
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  commentSection: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#8B4513',
-    marginBottom: 8,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: '#8B7355',
-    marginBottom: 15,
-  },
-  reasonGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  reasonChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: '#F5E6D3',
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    marginBottom: 10,
-    marginRight: 10,
-  },
-  reasonChipSelected: {
-    backgroundColor: '#D4AC0D',
-    borderColor: '#D4AC0D',
-  },
-  reasonChipText: {
-    fontSize: 14,
-    color: '#8B4513',
-    fontWeight: '600',
-  },
-  reasonChipTextSelected: {
-    color: '#fff',
-  },
-  commentInputContainer: {
-    position: 'relative',
-  },
-  commentInput: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 15,
-    padding: 15,
-    fontSize: 16,
-    color: '#333',
-    minHeight: 120,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  characterCount: {
-    position: 'absolute',
-    bottom: 10,
-    right: 15,
-    fontSize: 12,
-    color: '#999',
-  },
-  attachmentSelector: {
-    flexDirection: 'row',
-    marginHorizontal: 20,
-    marginVertical: 20,
-  },
-  attachmentButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 15,
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    elevation: 2,
-    marginHorizontal: 5,
-  },
-  attachmentButtonActive: {
-    backgroundColor: '#D4AC0D',
-    borderColor: '#D4AC0D',
-  },
-  attachmentButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8B4513',
-    marginLeft: 8,
-  },
-  attachmentButtonTextActive: {
-    color: '#fff',
-  },
-  videoSection: {
-    margin: 20,
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  videoContainer: {
-    position: 'relative',
-    width: '100%',
-    height: 220,
-    backgroundColor: '#000',
-    borderRadius: 15,
-    overflow: 'hidden',
-    marginBottom: 10,
-  },
-  video: {
-    width: '100%',
-    height: '100%',
-  },
-  deleteVideoButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 20,
-    padding: 4,
-  },
-  videoInfo: {
-    fontSize: 12,
-    color: '#8B7355',
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  recordingSection: {
-    margin: 20,
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  recordingContainer: {
-    alignItems: 'center',
-  },
-  waveformContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  dbReading: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  waveform: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    height: 80,
-    justifyContent: 'space-around',
-    width: '60%',
-  },
-  waveBar: {
-    width: 8,
-    backgroundColor: '#D4AC0D',
-    borderRadius: 4,
-    marginHorizontal: 2,
-  },
-  timerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  timerText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#8B4513',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  recordingDot: {
-    marginLeft: 15,
-  },
-  pulsingDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#E74C3C',
-  },
-  recordButtonContainer: {
-    marginBottom: 15,
-  },
-  recordButton: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-  },
-  recordStatus: {
-    fontSize: 16,
-    color: '#8B7355',
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  playbackSection: {
-    margin: 20,
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  progressContainer: {
-    marginBottom: 20,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 2,
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#D4AC0D',
-    borderRadius: 2,
-  },
-  timeLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  timeText: {
-    fontSize: 14,
-    color: '#8B7355',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  playbackControls: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  restartButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#F5E6D3',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2,
-    marginHorizontal: 10,
-  },
-  playButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#F5E6D3',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    marginHorizontal: 10,
-  },
-  deleteButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#FFE6E6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2,
-    marginHorizontal: 10,
-  },
-  saveReportButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#27AE60',
-    marginHorizontal: 20,
-    marginVertical: 20,
-    padding: 18,
-    borderRadius: 15,
-    elevation: 6,
-    shadowColor: '#27AE60',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-  },
-  saveReportButtonDisabled: {
-    backgroundColor: '#CCC',
-    shadowColor: '#CCC',
-  },
-  saveReportText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginLeft: 10,
-  },
-  modalContainer: {
-    flex: 1,
-  },
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  drawerContainer: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: width * 0.8,
-    backgroundColor: '#fff',
-  },
-  drawerPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  drawerText: {
-    fontSize: 18,
-    color: '#8B4513',
-    fontWeight: '600',
-  },
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  header: { paddingTop: getStatusBarHeight(), paddingBottom: 20, paddingHorizontal: 20 },
+  headerContent: { marginTop: 10 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  headerButton: { padding: 8 },
+  headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff', marginBottom: 5 },
+  headerSubtitle: { fontSize: 14, color: '#D4AC0D' },
+  scrollView: { flex: 1 },
+  section: { backgroundColor: '#fff', padding: 20, marginBottom: 15 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#8B4513', marginBottom: 5 },
+  sectionSubtitle: { fontSize: 14, color: '#666', marginBottom: 15 },
+  reasonGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  chip: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#f0f0f0', borderWidth: 2, borderColor: '#e0e0e0' },
+  chipSelected: { backgroundColor: '#8B4513', borderColor: '#654321' },
+  chipText: { fontSize: 14, color: '#333', fontWeight: '500' },
+  chipTextSelected: { color: '#fff' },
+  input: { backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 12, fontSize: 14, color: '#333', minHeight: 100 },
+  charCount: { position: 'absolute', bottom: 8, right: 12, fontSize: 12, color: '#999' },
+  locationBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#8B4513', padding: 15, borderRadius: 10, gap: 10 },
+  locationBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  locationDisplay: { backgroundColor: '#f9f9f9', borderRadius: 10, padding: 15, borderWidth: 1, borderColor: '#e0e0e0' },
+  locationInfo: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
+  locationAddress: { fontSize: 15, color: '#333', fontWeight: '600', marginBottom: 4 },
+  locationCoords: { fontSize: 13, color: '#666' },
+  locationActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 5 },
+  refreshBtn: { padding: 8, backgroundColor: '#f0f0f0', borderRadius: 8 },
+  removeBtn: { padding: 8, backgroundColor: '#ffe5e5', borderRadius: 8 },
+  error: { color: '#E74C3C', fontSize: 13, marginTop: 10 },
+  attachmentSelector: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, marginBottom: 15 },
+  attachBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: 15, borderRadius: 10, gap: 8, borderWidth: 2, borderColor: '#e0e0e0' },
+  attachBtnActive: { backgroundColor: '#8B4513', borderColor: '#654321' },
+  attachBtnText: { fontSize: 14, fontWeight: '600', color: '#8B4513' },
+  attachBtnTextActive: { color: '#fff' },
+  videoContainer: { position: 'relative', backgroundColor: '#000', borderRadius: 10, overflow: 'hidden', marginBottom: 10 },
+  video: { width: '100%', height: 200 },
+  deleteVideoBtn: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
+  videoInfo: { fontSize: 12, color: '#666', fontStyle: 'italic' },
+  recordingContainer: { alignItems: 'center' },
+  waveformContainer: { alignItems: 'center', marginBottom: 20 },
+  dbReading: { fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
+  waveform: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 100, gap: 8 },
+  waveBar: { width: 6, borderRadius: 3 },
+  timerContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 30 },
+  timerText: { fontSize: 32, fontWeight: 'bold', color: '#8B4513' },
+  recordingDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#E74C3C' },
+  pulsingDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#E74C3C' },
+  recordButton: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84 },
+  recordStatus: { fontSize: 14, color: '#666', marginTop: 20 },
+  progressContainer: { marginBottom: 20 },
+  progressBar: { height: 6, backgroundColor: '#e0e0e0', borderRadius: 3, overflow: 'hidden', marginBottom: 8 },
+  progressFill: { height: '100%', backgroundColor: '#8B4513' },
+  timeLabels: { flexDirection: 'row', justifyContent: 'space-between' },
+  timeText: { fontSize: 12, color: '#666' },
+  playbackControls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 30 },
+  restartBtn: { padding: 15, backgroundColor: '#f0f0f0', borderRadius: 25 },
+  playBtn: { padding: 20, backgroundColor: '#D4AC0D', borderRadius: 35 },
+  deleteBtn: { padding: 15, backgroundColor: '#ffe5e5', borderRadius: 25 },
+  saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#27AE60', marginHorizontal: 20, marginVertical: 20, padding: 18, borderRadius: 12, gap: 10, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84 },
+  saveBtnDisabled: { backgroundColor: '#ccc' },
+  saveBtnText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  modalContainer: { flex: 1 },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+  drawerContainer: { position: 'absolute', left: 0, top: 0, bottom: 0, width: width * 0.8 },
 });
