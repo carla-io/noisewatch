@@ -17,7 +17,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { getStatusBarHeight } from 'react-native-status-bar-height';
 import { useNavigation } from '@react-navigation/native';
-import CustomDrawer from '../CustomDrawer'; // Import your CustomDrawer component
+import CustomDrawer from '../CustomDrawer';
 import API_BASE_URL from '../../utils/api';
 
 const { width } = Dimensions.get('window');
@@ -112,10 +112,10 @@ const UserManagement = ({ setShowUserModal }) => {
     });
   };
 
-  const filteredUsers = users.filter(user => {
+   const filteredUsers = users.filter(user => {
     const matchesSearch = 
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase());
+      (user.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (user.email?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     
     const matchesUserType = selectedFilters.userType.length === 0 || 
       selectedFilters.userType.includes(user.userType);
@@ -254,7 +254,7 @@ const UserManagement = ({ setShowUserModal }) => {
                   onPress={() => handleFilterChange(filter.type, filter.value)}
                   style={styles.filterTagRemove}
                 >
-                  <Ionicons name="close" size={14} color="#6b7280" />
+                  <Ionicons name="close" size={14} color="#8B4513" />
                 </TouchableOpacity>
               </View>
             ))}
@@ -299,7 +299,7 @@ const UserManagement = ({ setShowUserModal }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <ActivityIndicator size="large" color="#8B4513" />
         <Text style={styles.loadingText}>Loading users...</Text>
       </View>
     );
@@ -311,7 +311,7 @@ const UserManagement = ({ setShowUserModal }) => {
         <View style={styles.headerContent}>
           <View style={styles.headerTop}>
             <TouchableOpacity onPress={openDrawer} style={styles.headerButton}>
-              <Ionicons name="menu" size={28} color="#a4d9ab" />
+              <Ionicons name="menu" size={28} color="#FFFFFF" />
             </TouchableOpacity>
             <View>
               <Text style={styles.headerTitle}>User Management</Text>
@@ -319,10 +319,10 @@ const UserManagement = ({ setShowUserModal }) => {
             </View>
             <View style={styles.headerRight}>
               <TouchableOpacity style={styles.headerButton}>
-                <Ionicons name="notifications-outline" size={24} color="#fff" />
+                <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
               </TouchableOpacity>
               <TouchableOpacity style={styles.headerButton}>
-                <Ionicons name="settings-outline" size={24} color="#fff" />
+                <Ionicons name="settings-outline" size={24} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
           </View>
@@ -333,20 +333,20 @@ const UserManagement = ({ setShowUserModal }) => {
         <View style={styles.dashboardContainer}>
           <View style={styles.searchContainer}>
             <View style={styles.searchInputContainer}>
-              <Ionicons name="search" size={20} color="#6b7280" style={styles.searchIcon} />
+              <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search users..."
                 value={searchTerm}
                 onChangeText={setSearchTerm}
-                placeholderTextColor="#6b7280"
+                placeholderTextColor="#999"
               />
             </View>
             <TouchableOpacity 
               style={[styles.filterButton, hasActiveFilters && styles.filterButtonActive]}
               onPress={() => setShowFilterDropdown(true)}
             >
-              <Ionicons name="filter" size={16} color={hasActiveFilters ? "#fff" : "#315342"} />
+              <Ionicons name="filter" size={16} color={hasActiveFilters ? "#FFF" : "#8B4513"} />
               <Text style={[styles.filterButtonText, hasActiveFilters && styles.filterButtonTextActive]}>
                 Filter
               </Text>
@@ -395,35 +395,39 @@ const UserManagement = ({ setShowUserModal }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F5E6D3',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F5E6D3',
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 15,
     fontSize: 16,
-    color: '#315342',
+    color: '#666',
   },
   header: {
-    paddingBottom: 30,
+    paddingBottom: 20,
     paddingTop: getStatusBarHeight(),
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    backgroundColor: '#315342',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
   headerContent: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 10,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   headerRight: {
     flexDirection: 'row',
@@ -431,18 +435,16 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(164, 217, 171, 0.2)',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#FFFFFF',
     marginBottom: 5,
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    color: '#D4AC0D',
   },
   content: {
     flex: 1,
@@ -461,16 +463,16 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    backgroundColor: '#FFF',
+    borderWidth: 2,
+    borderColor: '#D4AC0D',
     borderRadius: 12,
     paddingHorizontal: 12,
-    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    elevation: 3,
   },
   searchIcon: {
     marginRight: 8,
@@ -479,38 +481,38 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1f2937',
+    color: '#333',
   },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#315342',
+    borderWidth: 2,
+    borderColor: '#D4AC0D',
     borderRadius: 12,
-    backgroundColor: '#ffffff',
-    elevation: 2,
+    backgroundColor: '#FFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    elevation: 3,
   },
   filterButtonActive: {
-    backgroundColor: '#315342',
-    borderColor: '#315342',
+    backgroundColor: '#D4AC0D',
+    borderColor: '#8B4513',
   },
   filterButtonText: {
     marginLeft: 8,
     fontSize: 14,
-    color: '#315342',
-    fontWeight: '500',
+    color: '#8B4513',
+    fontWeight: '600',
   },
   filterButtonTextActive: {
-    color: '#fff',
+    color: '#FFF',
   },
   filterCount: {
-    backgroundColor: 'rgba(164, 217, 171, 0.3)',
+    backgroundColor: '#8B4513',
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -519,7 +521,7 @@ const styles = StyleSheet.create({
   filterCountText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#fff',
+    color: '#FFF',
   },
   activeFiltersContainer: {
     marginBottom: 16,
@@ -531,17 +533,17 @@ const styles = StyleSheet.create({
   filterTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e8f5e8',
-    borderWidth: 1,
-    borderColor: '#315342',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: '#F5E6D3',
+    borderWidth: 2,
+    borderColor: '#D4AC0D',
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
   },
   filterTagText: {
     fontSize: 12,
-    color: '#315342',
-    fontWeight: '500',
+    color: '#8B4513',
+    fontWeight: '600',
   },
   filterTagRemove: {
     marginLeft: 8,
@@ -549,13 +551,13 @@ const styles = StyleSheet.create({
   },
   usersList: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    elevation: 2,
+    backgroundColor: '#FFF',
+    borderRadius: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    elevation: 3,
   },
   modalContainer: {
     flex: 1,
@@ -585,26 +587,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   filterDropdown: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: '#FFF',
+    borderRadius: 15,
     margin: 20,
     maxHeight: 400,
     minWidth: 250,
-    elevation: 5,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 25,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+    borderWidth: 2,
+    borderColor: '#D4AC0D',
   },
   filterSection: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: '#E0E0E0',
   },
   filterSectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#315342',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#8B4513',
     marginBottom: 12,
   },
   filterOption: {
@@ -613,48 +617,57 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   checkbox: {
-    width: 16,
-    height: 16,
-    borderWidth: 1,
-    borderColor: '#315342',
-    borderRadius: 3,
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: '#8B4513',
+    borderRadius: 4,
     marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFF',
   },
   checkboxSelected: {
-    backgroundColor: '#315342',
-    borderColor: '#315342',
+    backgroundColor: '#8B4513',
+    borderColor: '#8B4513',
   },
   filterLabel: {
     fontSize: 14,
-    color: '#374151',
+    color: '#333',
     textTransform: 'capitalize',
+    fontWeight: '500',
   },
   filterActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
   },
   btnText: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   btnTextLabel: {
-    color: '#6b7280',
+    color: '#666',
     fontSize: 14,
+    fontWeight: '600',
   },
   btnPrimary: {
-    backgroundColor: '#315342',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
+    backgroundColor: '#8B4513',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   btnPrimaryLabel: {
-    color: '#fff',
+    color: '#FFF',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '700',
   },
   userRow: {
     flexDirection: 'row',
@@ -662,20 +675,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: '#E0E0E0',
+    backgroundColor: '#FFF',
   },
   userInfo: {
     flex: 1,
   },
   userName: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#315342',
+    fontWeight: '600',
+    color: '#333',
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#666',
   },
   userMeta: {
     alignItems: 'flex-end',
@@ -685,45 +699,58 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
+    borderWidth: 1,
   },
   badgeText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     textTransform: 'capitalize',
   },
   badgePurple: {
-    backgroundColor: '#e9d5ff',
+    backgroundColor: '#E9D5FF',
+    borderColor: '#9333EA',
   },
   badgePurpleText: {
-    color: '#7c3aed',
+    color: '#6B21A8',
   },
   badgeBlue: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: '#DBEAFE',
+    borderColor: '#3B82F6',
   },
   badgeBlueText: {
-    color: '#3b82f6',
+    color: '#1E40AF',
   },
   badgeGray: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#F3F4F6',
+    borderColor: '#9CA3AF',
   },
   badgeGrayText: {
-    color: '#6b7280',
+    color: '#4B5563',
   },
   badgeGreen: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: '#D1FAE5',
+    borderColor: '#10B981',
   },
   badgeGreenText: {
-    color: '#065f46',
+    color: '#065F46',
   },
   badgeOrange: {
-    backgroundColor: '#fed7aa',
+    backgroundColor: '#FED7AA',
+    borderColor: '#F97316',
   },
   badgeOrangeText: {
-    color: '#9a3412',
+    color: '#9A3412',
+  },
+  badgeBrown: {
+    backgroundColor: '#F5E6D3',
+    borderColor: '#D4AC0D',
+  },
+  badgeBrownText: {
+    color: '#8B4513',
   },
   joinDate: {
     fontSize: 12,
-    color: '#6b7280',
+    color: '#666',
     marginTop: 4,
   },
   emptyState: {
@@ -733,10 +760,17 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   emptyStateText: {
-    fontSize: 16,
-    color: '#6b7280',
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#999',
+    marginTop: 20,
     textAlign: 'center',
-    fontStyle: 'italic',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#BBB',
+    marginTop: 8,
+    textAlign: 'center',
   },
   emptyListContainer: {
     flex: 1,

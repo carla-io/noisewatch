@@ -101,7 +101,7 @@ const CustomDrawer = ({ navigation, onClose }) => {
     setTimeout(() => {
       try {
         // Check if the route exists in your navigation stack
-        const validRoutes = ['Home', 'MapScreen', 'UserProfile', 'AdminDashboard', 'UserManagement', 'Record'];
+        const validRoutes = ['Home', 'MapScreen', 'UserProfile', 'AdminDashboard', 'UserManagement', 'Record', 'NoiseReports'];
         
         if (validRoutes.includes(route)) {
           navigation.navigate(route);

@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
@@ -10,9 +10,10 @@ import Register from './Pages/Auth/Register';
 import Home from './Pages/Home'
 import AdminDashboard from './Pages/Admin/AdminDashboard';
 import UserManagement from './Pages/Admin/UserManagement';
+import AdminNoiseReportsScreen from './Pages/Admin/NoiseReports';
 import UserProfile from './Pages/UserProfile';
-import MapScreen from './Pages/User/Map'; // Changed from 'Map' to 'MapScreen' for consistency
-import AudioRecordingScreen from './Pages/User/Report'; // New import for AudioRecording screen
+import MapScreen from './Pages/User/Map';
+import AudioRecordingScreen from './Pages/User/Report';
 
 const Stack = createStackNavigator();
 
@@ -67,7 +68,7 @@ export default function App() {
             component={UserProfile}
           />
 
-          {/* Map Screen - This is the important one */}
+          {/* Map Screen */}
           <Stack.Screen
             name="MapScreen"
             component={MapScreen}
@@ -77,6 +78,7 @@ export default function App() {
             }}
           />
 
+          {/* Audio Recording Screen */}
           <Stack.Screen
             name="Record"
             component={AudioRecordingScreen}
@@ -94,6 +96,14 @@ export default function App() {
           <Stack.Screen
             name="UserManagement"
             component={UserManagement}
+          />
+          <Stack.Screen
+            name="NoiseReports"
+            component={AdminNoiseReportsScreen}
+            options={{
+              headerShown: false,
+              gestureEnabled: true,
+            }}
           />
 
           {/* Placeholder screens for missing routes */}
