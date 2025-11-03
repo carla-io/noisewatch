@@ -267,19 +267,21 @@ const UserManagement = ({ setShowUserModal }) => {
   const renderUserItem = ({ item }) => (
     <View style={styles.userRow}>
       <View style={styles.userInfo}>
-        <Text style={styles.userName}>{item.name}</Text>
-        <Text style={styles.userEmail}>{item.email}</Text>
+        <Text style={styles.userName} numberOfLines={1}>{item.name}</Text>
+        <Text style={styles.userEmail} numberOfLines={1}>{item.email}</Text>
       </View>
       <View style={styles.userMeta}>
-        <View style={getBadgeStyle('userType', item.userType)}>
-          <Text style={[styles.badgeText, getBadgeTextStyle('userType', item.userType)]}>
-            {item.userType}
-          </Text>
-        </View>
-        <View style={getBadgeStyle('status', item.status || 'active')}>
-          <Text style={[styles.badgeText, getBadgeTextStyle('status', item.status || 'active')]}>
-            {item.status || 'active'}
-          </Text>
+        <View style={styles.badgeRow}>
+          <View style={getBadgeStyle('userType', item.userType)}>
+            <Text style={[styles.badgeText, getBadgeTextStyle('userType', item.userType)]}>
+              {item.userType}
+            </Text>
+          </View>
+          <View style={getBadgeStyle('status', item.status || 'active')}>
+            <Text style={[styles.badgeText, getBadgeTextStyle('status', item.status || 'active')]}>
+              {item.status || 'active'}
+            </Text>
+          </View>
         </View>
         <Text style={styles.joinDate}>
           {new Date(item.createdAt).toLocaleDateString()}
@@ -290,8 +292,12 @@ const UserManagement = ({ setShowUserModal }) => {
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
+      <Ionicons name="people-outline" size={64} color="#CCC" />
       <Text style={styles.emptyStateText}>
-        {users.length === 0 ? 'No users found' : 'No users found matching your criteria'}
+        {users.length === 0 ? 'No users found' : 'No users match your filters'}
+      </Text>
+      <Text style={styles.emptySubtext}>
+        {users.length === 0 ? 'Users will appear here once added' : 'Try adjusting your search or filters'}
       </Text>
     </View>
   );
@@ -313,7 +319,7 @@ const UserManagement = ({ setShowUserModal }) => {
             <TouchableOpacity onPress={openDrawer} style={styles.headerButton}>
               <Ionicons name="menu" size={28} color="#FFFFFF" />
             </TouchableOpacity>
-            <View>
+            <View style={styles.headerTitleContainer}>
               <Text style={styles.headerTitle}>User Management</Text>
               <Text style={styles.headerSubtitle}>Manage your users and roles</Text>
             </View>
@@ -369,7 +375,7 @@ const UserManagement = ({ setShowUserModal }) => {
               keyExtractor={(item) => item._id}
               ListEmptyComponent={renderEmptyState}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={filteredUsers.length === 0 ? styles.emptyListContainer : null}
+              contentContainerStyle={filteredUsers.length === 0 ? styles.emptyListContainer : styles.listContent}
             />
           </View>
         </View>
@@ -406,9 +412,10 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 15,
     fontSize: 16,
-    color: '#666',
+    color: '#8B4513',
   },
   header: {
+    backgroundColor: '#8B4513',
     paddingBottom: 20,
     paddingTop: getStatusBarHeight(),
     borderBottomLeftRadius: 30,
@@ -429,6 +436,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
+  headerTitleContainer: {
+    flex: 1,
+    marginLeft: 15,
+  },
   headerRight: {
     flexDirection: 'row',
     gap: 10,
@@ -437,14 +448,15 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 5,
+    marginBottom: 4,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#D4AC0D',
+    fontSize: 13,
+    color: '#F5E6D3',
+    opacity: 0.9,
   },
   content: {
     flex: 1,
@@ -468,6 +480,7 @@ const styles = StyleSheet.create({
     borderColor: '#D4AC0D',
     borderRadius: 12,
     paddingHorizontal: 12,
+    height: 48,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -479,15 +492,14 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 12,
-    fontSize: 16,
+    fontSize: 15,
     color: '#333',
   },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    height: 48,
     borderWidth: 2,
     borderColor: '#D4AC0D',
     borderRadius: 12,
@@ -503,7 +515,7 @@ const styles = StyleSheet.create({
     borderColor: '#8B4513',
   },
   filterButtonText: {
-    marginLeft: 8,
+    marginLeft: 6,
     fontSize: 14,
     color: '#8B4513',
     fontWeight: '600',
@@ -513,14 +525,17 @@ const styles = StyleSheet.create({
   },
   filterCount: {
     backgroundColor: '#8B4513',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginLeft: 8,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    marginLeft: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterCountText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#FFF',
   },
   activeFiltersContainer: {
@@ -533,12 +548,13 @@ const styles = StyleSheet.create({
   filterTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5E6D3',
-    borderWidth: 2,
+    backgroundColor: '#FFF',
+    borderWidth: 1.5,
     borderColor: '#D4AC0D',
     borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
+    paddingLeft: 12,
+    paddingRight: 8,
+    paddingVertical: 6,
   },
   filterTagText: {
     fontSize: 12,
@@ -546,7 +562,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   filterTagRemove: {
-    marginLeft: 8,
+    marginLeft: 6,
     padding: 2,
   },
   usersList: {
@@ -558,6 +574,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    overflow: 'hidden',
+  },
+  listContent: {
+    paddingBottom: 10,
   },
   modalContainer: {
     flex: 1,
@@ -675,43 +695,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#F0F0F0',
     backgroundColor: '#FFF',
   },
   userInfo: {
     flex: 1,
+    marginRight: 12,
   },
   userName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#333',
     marginBottom: 4,
   },
   userEmail: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
   },
   userMeta: {
     alignItems: 'flex-end',
-    gap: 8,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 6,
   },
   badge: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
   },
   badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     textTransform: 'capitalize',
   },
   badgePurple: {
-    backgroundColor: '#E9D5FF',
-    borderColor: '#9333EA',
+    backgroundColor: '#F3E8FF',
+    borderColor: '#A855F7',
   },
   badgePurpleText: {
-    color: '#6B21A8',
+    color: '#7E22CE',
   },
   badgeBlue: {
     backgroundColor: '#DBEAFE',
@@ -732,26 +757,19 @@ const styles = StyleSheet.create({
     borderColor: '#10B981',
   },
   badgeGreenText: {
-    color: '#065F46',
+    color: '#047857',
   },
   badgeOrange: {
     backgroundColor: '#FED7AA',
     borderColor: '#F97316',
   },
   badgeOrangeText: {
-    color: '#9A3412',
-  },
-  badgeBrown: {
-    backgroundColor: '#F5E6D3',
-    borderColor: '#D4AC0D',
-  },
-  badgeBrownText: {
-    color: '#8B4513',
+    color: '#C2410C',
   },
   joinDate: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
+    fontSize: 11,
+    color: '#999',
+    fontWeight: '500',
   },
   emptyState: {
     flex: 1,
@@ -760,10 +778,10 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   emptyStateText: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#999',
-    marginTop: 20,
+    marginTop: 16,
     textAlign: 'center',
   },
   emptySubtext: {

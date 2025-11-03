@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Modal,
+  Modal,  
   Animated,
   StatusBar,
   Dimensions,
@@ -57,7 +57,14 @@ export default function AdminNoiseReportsScreen({ navigation }) {
       const data = await response.json();
       
       if (response.ok) {
-        setReports(data);
+        // Transform the data to match the expected structure
+        const transformedReports = data.map(report => ({
+          ...report,
+          // Map mediaUrl to audioUri or videoUri based on mediaType
+          audioUri: report.mediaType === 'audio' ? report.mediaUrl : null,
+          videoUri: report.mediaType === 'video' ? report.mediaUrl : null,
+        }));
+        setReports(transformedReports);
       } else {
         Alert.alert('Error', 'Failed to fetch reports');
       }
