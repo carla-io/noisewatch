@@ -37,13 +37,22 @@ router.post("/new-report", upload.single("media"), async (req, res) => {
 
     const parsedLocation = location ? JSON.parse(location) : null;
 
-    const newReport = new NoiseReport({
-      mediaUrl,
-      mediaType,
-      reason,
-      comment,
-      location: parsedLocation,
-    });
+const newReport = new NoiseReport({
+  mediaUrl,
+  mediaType,
+  reason,
+  comment,
+  location: parsedLocation, 
+
+  // Save GeoJSON too
+  geoLocation: {
+    type: "Point",
+    coordinates: [
+      parsedLocation.longitude,
+      parsedLocation.latitude
+    ]
+  }
+});
 
     await newReport.save();
     res.status(201).json({
@@ -66,5 +75,44 @@ router.get("/get-report", async (req, res) => {
     res.status(500).json({ message: "Error fetching reports", error: error.message });
   }
 });
+
+router.get("/map-data", async (req, res) => {
+  try {
+    const result = await NoiseReport.aggregate([
+      // Only include reports with valid numeric coordinates
+      {
+        $match: {
+          "location.latitude": { $type: "number" },
+          "location.longitude": { $type: "number" }
+        }
+      },
+      // Group by coordinates
+      {
+        $group: {
+          _id: {
+            lat: "$location.latitude",
+            lon: "$location.longitude"
+          },
+          count: { $sum: 1 }
+        }
+      },
+      // Return coordinate array + count
+      {
+        $project: {
+          _id: 0,
+          coordinates: ["$_id.lon", "$_id.lat"], // [lon, lat]
+          count: 1
+        }
+      }
+    ]);
+
+    res.json(result);
+  } catch (err) {
+    console.error("Map error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
 
 module.exports = router;
