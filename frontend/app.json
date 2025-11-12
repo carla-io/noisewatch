@@ -23,8 +23,6 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
       "package": "com.cdasal.frontend"
@@ -35,11 +33,14 @@
     "plugins": [
       [
         "expo-location",
-       
-    
-
         "react-native-maps"
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "60ea2358-b6ad-473d-8565-da3c9678655b"
+      }
+    },
+    "owner": "cdasal"
   }
 }
